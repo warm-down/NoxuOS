@@ -1,0 +1,17 @@
+{
+  "name": "agent-workflow-app",
+  "version": "0.1.0",
+  "description": "Multi-agent workflow sample app demonstrating a Writer and Reviewer collaboration using an extensible agent framework.",
+  "main": "src/index.js",
+  "type": "commonjs",
+  "scripts": {
+    "start": "node src/index.js",
+    "test": "node tests/run-tests.js"
+  },
+  "author": "NoxuOS",
+  "license": "Apache-2.0",
+  "dependencies": {
+    "dotenv": "^17.4.2",
+    "openai": "^6.45.0"
+  }
+}

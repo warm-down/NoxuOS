@@ -58,9 +58,20 @@ The OS adapts its capabilities based on the hardware, ensuring optimal performan
 1. Clone the repository:  
    ```bash
    git clone https://github.com/NoxuOS/Noxu.git
+   ```
 2. Install build dependencies (see Build Guide).
 3. Compile the kernel and deploy to supported hardware or virtual machine.
 4. Contribute by creating new AI models or optimizing system components.
+
+### **Agent Workflow Prototype**
+NoxuOS includes a runnable multi-agent prototype in `agent-workflow-app`. It wires together a Writer agent and Reviewer agent with a mock provider by default, and can use OpenAI when `OPENAI_API_KEY` is configured.
+
+```powershell
+cd agent-workflow-app
+npm install
+npm test
+npm start
+```
 
 ## **How It Works**
 AI Kernel: Manages system resources, user interactions, and parallel task execution efficiently.
