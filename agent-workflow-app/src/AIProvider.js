@@ -70,9 +70,12 @@ class MockProvider {
 }
 
 function createDefaultProvider() {
-  if (process.env.OPENAI_API_KEY) {
+  const apiKey = process.env.OPENAI_API_KEY;
+  const hasRealApiKey = apiKey && apiKey !== 'YOUR_OPENAI_API_KEY';
+
+  if (hasRealApiKey) {
     return new OpenAIProvider({
-      apiKey: process.env.OPENAI_API_KEY,
+      apiKey,
       model: process.env.OPENAI_MODEL || 'gpt-4.1-mini',
       temperature: Number(process.env.OPENAI_TEMPERATURE || '0.7')
     });
