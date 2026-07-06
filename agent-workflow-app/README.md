@@ -31,6 +31,23 @@ This sample app demonstrates a simple multi-agent workflow using a Writer agent 
    npm test
    ```
 
+## Local Launch
+
+For an offline-capable local setup, run the workflow through Ollama:
+
+```powershell
+copy .env.example .env
+npm run launch:check
+```
+
+See `LAUNCH.md` for the full first-node and XPS 13 setup path.
+
+To check the future Pi 5 mesh bridge:
+
+```powershell
+npm run bridge:check
+```
+
 ## Extending the framework
 
-This sample app is structured so a real AI model can be connected later. Replace the placeholder generation and review logic in `src/Agent.js` with your preferred Agent Framework SDK functions or provider calls.
+This sample app supports mock, OpenAI, and Ollama providers. Add new agent roles in `src/Agent.js` and route them through `WorkflowEngine`.

@@ -1,8 +1,9 @@
 const assert = require('assert');
 const { WorkflowEngine } = require('../src/WorkflowEngine');
+const { MockProvider } = require('../src/AIProvider');
 
 async function runTests() {
-  const engine = new WorkflowEngine();
+  const engine = new WorkflowEngine({ provider: new MockProvider() });
   const task = 'Write a launch summary for a new AI notebook feature.';
   const result = await engine.runWorkflow(task);
 

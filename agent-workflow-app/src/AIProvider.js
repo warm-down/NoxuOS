@@ -34,6 +34,56 @@ class OpenAIProvider {
   }
 }
 
+class OllamaProvider {
+  constructor({
+    baseUrl = 'http://127.0.0.1:11434',
+    model = 'llama3.2:latest',
+    temperature = 0.7,
+    maxTokens = 256
+  } = {}) {
+    this.baseUrl = baseUrl.replace(/\/$/, '');
+    this.model = model;
+    this.temperature = temperature;
+    this.maxTokens = maxTokens;
+  }
+
+  async generate({ system, messages = [], user, temperature, format, maxTokens } = {}) {
+    const chatMessages = [];
+    if (system) {
+      chatMessages.push({ role: 'system', content: system });
+    }
+    if (messages.length) {
+      chatMessages.push(...messages);
+    }
+    if (user) {
+      chatMessages.push({ role: 'user', content: user });
+    }
+
+    const response = await fetch(`${this.baseUrl}/api/chat`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: this.model,
+        messages: chatMessages,
+        stream: false,
+        format,
+        options: {
+          temperature: temperature ?? this.temperature,
+          num_predict: maxTokens ?? this.maxTokens
+        }
+      })
+    });
+
+    if (!response.ok) {
+      const body = await response.text();
+      throw new Error(`Ollama request failed (${response.status}): ${body}`);
+    }
+
+    const data = await response.json();
+    return data.message?.content?.trim() ?? '';
+  }
+}
+
 class MockProvider {
   constructor({ temperature = 0.7 } = {}) {
     this.temperature = temperature;
@@ -69,11 +119,33 @@ class MockProvider {
   }
 }
 
+async function canReachOllama(baseUrl) {
+  try {
+    const response = await fetch(`${baseUrl.replace(/\/$/, '')}/api/tags`, {
+      signal: AbortSignal.timeout(1000)
+    });
+    return response.ok;
+  } catch (error) {
+    return false;
+  }
+}
+
 function createDefaultProvider() {
+  const provider = (process.env.AI_PROVIDER || 'auto').toLowerCase();
   const apiKey = process.env.OPENAI_API_KEY;
   const hasRealApiKey = apiKey && apiKey !== 'YOUR_OPENAI_API_KEY';
+  const ollamaBaseUrl = process.env.OLLAMA_BASE_URL || 'http://127.0.0.1:11434';
 
-  if (hasRealApiKey) {
+  if (provider === 'ollama') {
+    return new OllamaProvider({
+      baseUrl: ollamaBaseUrl,
+      model: process.env.OLLAMA_MODEL || 'llama3.2:latest',
+      temperature: Number(process.env.OLLAMA_TEMPERATURE || process.env.OPENAI_TEMPERATURE || '0.7'),
+      maxTokens: Number(process.env.OLLAMA_MAX_TOKENS || '256')
+    });
+  }
+
+  if (provider === 'openai' || (provider === 'auto' && hasRealApiKey)) {
     return new OpenAIProvider({
       apiKey,
       model: process.env.OPENAI_MODEL || 'gpt-4.1-mini',
@@ -81,12 +153,19 @@ function createDefaultProvider() {
     });
   }
 
-  console.warn('No OPENAI_API_KEY found. Running with a mock provider. Set OPENAI_API_KEY to connect to OpenAI.');
+  if (provider !== 'mock' && provider !== 'auto') {
+    console.warn(`Unknown AI_PROVIDER "${provider}". Falling back to mock provider.`);
+  } else if (provider === 'auto') {
+    console.warn('No local provider was explicitly selected. Running with a mock provider. Set AI_PROVIDER=ollama to use local models.');
+  }
+
   return new MockProvider({ temperature: Number(process.env.OPENAI_TEMPERATURE || '0.7') });
 }
 
 module.exports = {
   OpenAIProvider,
+  OllamaProvider,
   MockProvider,
+  canReachOllama,
   createDefaultProvider
 };

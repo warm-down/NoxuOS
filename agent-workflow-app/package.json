@@ -6,12 +6,15 @@
   "type": "commonjs",
   "scripts": {
     "start": "node src/index.js",
-    "test": "node tests/run-tests.js"
+    "test": "node tests/run-tests.js",
+    "launch:check": "powershell -ExecutionPolicy Bypass -File scripts/launch-check.ps1",
+    "bridge:check": "node scripts/bridge-check.js"
   },
   "author": "NoxuOS",
   "license": "Apache-2.0",
   "dependencies": {
     "dotenv": "^17.4.2",
-    "openai": "^6.45.0"
+    "openai": "^6.45.0",
+    "ws": "^8.21.0"
   }
 }

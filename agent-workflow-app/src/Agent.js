@@ -32,8 +32,12 @@ class WriterAgent extends Agent {
       throw new Error('WriterAgent requires a provider to refine content.');
     }
 
+    const improvements = Array.isArray(review.improvements)
+      ? review.improvements
+      : [String(review.improvements || 'Improve clarity, structure, and factual grounding.')];
+
     const system = `You are ${this.name}, a professional writer agent. Improve the draft using reviewer feedback.`;
-    const user = `Here is the current draft:\n${draft}\n\nReviewer feedback:\n${review.improvements.join('\n')}\n\nPlease provide a refined draft that incorporates the review suggestions.`;
+    const user = `Here is the current draft:\n${draft}\n\nReviewer feedback:\n${improvements.join('\n')}\n\nPlease provide a refined draft that incorporates the review suggestions.`;
 
     return this.provider.generate({ system, user });
   }
@@ -51,10 +55,19 @@ class ReviewerAgent extends Agent {
 
     const system = `You are ${this.name}, an expert reviewer agent. Analyze the draft and provide constructive feedback in valid JSON format.`;
     const user = `Review the draft below and return only valid JSON with keys: observations, improvements, summary. Do not include any extra explanation outside the JSON object.\n\nDraft:\n${draft}`;
-    const output = await this.provider.generate({ system, user });
+    const output = await this.provider.generate({ system, user, format: 'json' });
 
     try {
-      return JSON.parse(output);
+      const parsed = JSON.parse(output);
+      return {
+        observations: Array.isArray(parsed.observations)
+          ? parsed.observations
+          : [String(parsed.observations || 'Draft reviewed.')],
+        improvements: Array.isArray(parsed.improvements)
+          ? parsed.improvements
+          : [String(parsed.improvements || 'Improve clarity and evidence.')],
+        summary: String(parsed.summary || `Reviewed by ${this.name}.`)
+      };
     } catch (error) {
       return {
         observations: ['Unable to parse review output from the provider.'],

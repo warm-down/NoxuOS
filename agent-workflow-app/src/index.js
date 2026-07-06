@@ -1,9 +1,15 @@
 require('dotenv').config();
 const { WorkflowEngine } = require('./WorkflowEngine');
 const { createDefaultProvider } = require('./AIProvider');
+const EmpireBridge = require('./EmpireBridge');
 
 async function main() {
   const provider = createDefaultProvider();
+  const empire = new EmpireBridge({ provider });
+  empire.connect().catch((error) => {
+    console.warn('[EMPIRE] Bridge startup failed:', error.message);
+  });
+
   const engine = new WorkflowEngine({ provider });
   const task = 'Draft a product announcement for the new AI-powered operating system feature.';
   const result = await engine.runWorkflow(task);
