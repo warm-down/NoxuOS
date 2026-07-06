@@ -135,6 +135,7 @@ Clone or update an external repo on the normal Linux/admin nodes with:
 cd ~/NoxuOS
 git pull
 NODES="pi@192.168.1.243" ./tools/sync-upsonic-nodes.sh
+NODES="pi@192.168.1.243" ./tools/sync-dev-gpt-nodes.sh
 ```
 
 Add more SSH targets as comma-separated values:
