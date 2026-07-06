@@ -80,9 +80,10 @@ Use `tools/bootstrap-ollama-node.sh` on Linux nodes to install Ollama, start it 
 Use one coordinator and multiple workers. Ollama does not merge three computers into one giant model brain; start with one AI host and let other machines call it over a trusted LAN or Tailscale.
 
 ```text
-Windows PC      = command center, browser dashboards, SSH, files, Git
-Raspberry Pi 5  = always-on hub, Home Assistant, MQTT, ESPHome, uptime services
-Linux AI box    = Ollama/Open WebUI/model runner, optional extra workers
+Kali XPS          = command center, development, SSH, Git, orchestration
+Raspberry Pi 5    = Linux compute node, AI/services, NoxuOS components
+Raspberry Pi 400  = Home Assistant OS, ESPHome, MQTT, dashboards, cameras
+Other AI host     = Ollama/Open WebUI/model runner, optional extra workers
 ```
 
 Core layers:
@@ -92,7 +93,7 @@ Network      Same LAN or Tailscale
 Access       SSH from Windows into each machine
 AI runtime   Ollama on the strongest machine
 Interface    Open WebUI in browser
-Automation   Home Assistant + MQTT on Raspberry Pi
+Automation   Home Assistant + MQTT on Raspberry Pi 400
 Storage      Syncthing/shared folder/NAS
 Control      Windows Terminal + dashboards
 ```
@@ -119,7 +120,7 @@ AI_BOX_OLLAMA_BASE_URL=http://192.168.1.x:11434
 OPEN_WEBUI_URL=http://192.168.1.x:3000
 ```
 
-From Windows:
+From Kali or the control laptop:
 
 ```powershell
 cd agent-workflow-app
@@ -128,8 +129,10 @@ npm run architecture:check
 
 `architecture:check` verifies the Pi controller, active mesh clients, AI-host Ollama, Open WebUI, Home Assistant, MQTT, ESPHome, SSH reachability, and Syncthing/storage endpoint if configured.
 
-### **Home Assistant OS On Raspberry Pi 5**
-When the Pi is flashed to Home Assistant OS, it becomes the automation appliance. The old Raspberry Pi OS service model (`apt`, `git`, `systemd`, `empire-pi.service`) no longer applies on the Pi itself.
+### **Home Assistant OS On Raspberry Pi 400**
+The Raspberry Pi 5 remains on its current Linux operating system and keeps running NoxuOS/Linux services. Home Assistant OS is installed on the Raspberry Pi 400 using a dedicated microSD card.
+
+Once the Pi 400 is booted into HAOS, it becomes the automation appliance. The normal Linux service model (`apt`, `git`, `systemd`, NoxuOS worker scripts) does not apply on the Pi 400 itself.
 
 Use the HAOS runbook:
 
@@ -150,6 +153,8 @@ If mDNS is not working, use the Pi IP:
 ```bash
 HOME_ASSISTANT_URL=http://192.168.1.X:8123 ./tools/haos-lan-check.sh
 ```
+
+Use the Pi 400 IP for `192.168.1.X`, not the Pi 5 IP.
 
 After onboarding, create a Home Assistant long-lived token and run:
 

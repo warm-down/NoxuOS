@@ -1,25 +1,30 @@
-# Home Assistant OS Transition Runbook
+# Home Assistant OS On Raspberry Pi 400
 
-This folder documents the Raspberry Pi 5 move from Raspberry Pi OS to Home Assistant OS.
+This folder documents the Raspberry Pi 400 Home Assistant OS deployment.
 
-## Role Change
+## Role Split
 
-Home Assistant OS is an appliance-style OS. After the Pi boots HAOS, do not expect normal `apt`, `git`, `systemd`, or the old `empire-pi.service` workflow on the Pi itself.
+The Raspberry Pi 5 stays on its current Linux operating system and continues running NoxuOS/Linux services.
+
+Home Assistant OS is installed on the Raspberry Pi 400. HAOS is an appliance-style OS, so do not expect normal `apt`, `git`, `systemd`, or NoxuOS worker scripts on the Pi 400 itself.
 
 New split:
 
 ```text
-Raspberry Pi 5  = Home Assistant OS, ESPHome, MQTT, device automations
-Kali XPS        = NoxuOS control laptop, security worker, AI/agent tools
-Other AI host   = Ollama/Open WebUI/model runner if needed
+Kali XPS          = administration, NoxuOS development, orchestration
+Raspberry Pi 5    = Linux compute node, AI/services, NoxuOS components
+Raspberry Pi 400  = Home Assistant OS, ESPHome, MQTT, dashboards, cameras
+ESP32 boards      = ESPHome/MQTT devices managed by Home Assistant
 ```
 
-NoxuOS mesh coordination should run from the laptop or another Linux host. Later, if needed, it can become a Home Assistant add-on, but do not block the HAOS install on that.
+NoxuOS mesh coordination should run from Kali, the Pi 5, or another Linux host. Later, if useful, it can become a Home Assistant add-on, but do not block the HAOS setup on that.
 
 ## First Boot
 
-1. Flash **Home Assistant OS for Raspberry Pi 5** with Raspberry Pi Imager.
-2. Insert the card, boot the Pi, and wait several minutes.
+1. Flash **Home Assistant OS for Raspberry Pi 400** with Raspberry Pi Imager.
+   - If Raspberry Pi Imager presents a Raspberry Pi 4/400 image, use that.
+   - If it only lists Raspberry Pi 4 and Raspberry Pi 5 images, use the Raspberry Pi 4 image for the Pi 400.
+2. Insert the dedicated HAOS microSD card into the Pi 400, boot it, and wait several minutes.
 3. Open one of:
 
 ```text
@@ -28,7 +33,8 @@ http://<pi-ip-address>:8123
 ```
 
 4. Complete onboarding and create the owner account.
-5. Set a static DHCP lease for the Pi in the router if possible.
+5. Set a static DHCP lease for the Pi 400 in the router if possible.
+6. Keep the Raspberry Pi 5 SD card and configuration unchanged.
 
 ## Essential Add-ons
 
@@ -45,6 +51,8 @@ Recommended base:
 - **Terminal & SSH** or **Advanced SSH & Web Terminal** for HAOS maintenance.
 - **Studio Code Server** for editing configuration from the browser.
 - **Samba share** if you want easy local config backups from the laptop.
+
+The SSH add-on is for Home Assistant OS maintenance only. It is not the same as normal Raspberry Pi OS SSH access.
 
 ## ESPHome
 
@@ -99,6 +107,8 @@ If mDNS fails:
 HOME_ASSISTANT_URL=http://192.168.1.X:8123 ./tools/haos-lan-check.sh
 ```
 
+Use the Pi 400 IP here, not the Pi 5 IP.
+
 After creating a Home Assistant long-lived access token:
 
 ```bash
@@ -107,7 +117,7 @@ HOME_ASSISTANT_TOKEN="paste-token" HOME_ASSISTANT_URL=http://192.168.1.X:8123 ./
 
 ## Recovery Notes
 
-- If `homeassistant.local` does not resolve, use the router client list to find the Pi IP.
+- If `homeassistant.local` does not resolve, use the router client list to find the Pi 400 IP.
 - If `8123` is closed, wait longer on first boot or check HDMI console output.
 - If MQTT `1883` is closed, Mosquitto is not installed/running yet.
 - If ESPHome dashboard `6052` is closed, the ESPHome add-on is not installed/running yet.

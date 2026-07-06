@@ -143,9 +143,9 @@ async function checkHomeAutomation(results) {
 
   try {
     const ha = await fetch(haUrl, { signal: AbortSignal.timeout(5000) });
-    results.push(print('Home Assistant', true, `${haUrl} HTTP ${ha.status}`, false));
+    results.push(print('Pi 400 Home Assistant', true, `${haUrl} HTTP ${ha.status}`, false));
   } catch (error) {
-    results.push(print('Home Assistant', false, error.message, false));
+    results.push(print('Pi 400 Home Assistant', false, error.message, false));
   }
 
   const mqtt = await tcpCheck(mqttHost, mqttPort);
@@ -157,7 +157,8 @@ async function checkHomeAutomation(results) {
 
 async function checkAccess(results) {
   const hosts = [
-    ['Raspberry Pi SSH', env('RASPBERRY_PI_HOST', hostFromUrl(env('PI_HOST', 'http://pi5.local:5000')))],
+    ['Raspberry Pi 5 SSH', env('RASPBERRY_PI_5_HOST', env('RASPBERRY_PI_HOST', hostFromUrl(env('PI_HOST', 'http://pi5.local:5000'))))],
+    ['Raspberry Pi 400 HAOS SSH add-on', env('RASPBERRY_PI_400_HOST', env('HOME_ASSISTANT_HOST', hostFromUrl(env('HOME_ASSISTANT_URL', 'http://homeassistant.local:8123'))))],
     ['AI box SSH', env('AI_BOX_HOST')],
     ['Other worker SSH', env('OTHER_SYSTEM_HOST')]
   ];
@@ -187,7 +188,7 @@ async function checkStorage(results) {
 async function main() {
   console.log('NoxuOS Three-System Architecture Check');
   console.log('=====================================');
-  console.log('Windows = control, Pi = automation hub, Linux = AI host/worker');
+  console.log('Kali = admin/dev, Pi 5 = Linux/NoxuOS services, Pi 400 = Home Assistant');
   console.log('');
 
   const results = [];
