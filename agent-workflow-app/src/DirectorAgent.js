@@ -104,6 +104,22 @@ Reply only as JSON: {"agent":"name","task":"description","response":"brief user-
   routeWithHeuristics(input) {
     const lower = input.toLowerCase();
 
+    if (/^(watchdog|security|kali)\b/.test(lower)) {
+      return { agent: 'watchdog', task: input.replace(/^(watchdog|security|kali)\b/i, '').trim() || 'status', response: 'Routing to Watchdog.' };
+    }
+
+    if (/^(writer|scribe)\b/.test(lower)) {
+      return { agent: 'writer', task: input.replace(/^(writer|scribe)\b/i, '').trim() || input, response: 'Routing to Writer.' };
+    }
+
+    if (/^(reviewer|critic)\b/.test(lower)) {
+      return { agent: 'reviewer', task: input.replace(/^(reviewer|critic)\b/i, '').trim() || input, response: 'Routing to Reviewer.' };
+    }
+
+    if (/^(librarian|files|file keeper)\b/.test(lower)) {
+      return { agent: 'librarian', task: input.replace(/^(librarian|files|file keeper)\b/i, '').trim() || input, response: 'Routing to Librarian.' };
+    }
+
     if (/\b(cameras?|rtsp|security sweep|home security)\b/.test(lower)) {
       return { agent: 'watchdog', task: input, response: 'Routing to Watchdog security node.' };
     }

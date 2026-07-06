@@ -7,6 +7,7 @@ const { WatchdogAgent } = require('../src/WatchdogAgent');
 const { TelegramBridge, parseAllowedChatIds, splitMessage } = require('../src/TelegramBridge');
 const { assertAllowedSubnet, normalizeSubnet, parsePorts } = require('../src/CameraScanner');
 const { extractSubnet } = require('../src/DirectorAgent');
+const { parseWakeCommand } = require('../src/WakeWords');
 
 async function runTests() {
   const provider = new MockProvider();
@@ -85,6 +86,17 @@ async function runTests() {
   assert.throws(() => assertAllowedSubnet('192.168.2.0/24', ['192.168.1.0/24']), /not in CAMERA_SCAN_ALLOWED_SUBNETS/, 'Camera scanner should reject unapproved private subnets');
   assert.deepStrictEqual(parsePorts('80, 554, bad, 70000'), [80, 554], 'Camera scanner should parse valid ports only');
   assert.strictEqual(extractSubnet('check cameras on 192.168.1.0/24'), '192.168.1.0/24', 'Director should extract /24 camera subnet');
+
+  const directorWake = parseWakeCommand('yo empire status', { requireWakeWord: true });
+  assert.strictEqual(directorWake.agent, 'director', 'Director wake word should select Director');
+  assert.strictEqual(directorWake.command, 'status', 'Director wake word should strip wake phrase');
+
+  const kaliWake = parseWakeCommand('kali check cameras', { requireWakeWord: true });
+  assert.strictEqual(kaliWake.agent, 'watchdog', 'Kali wake word should select Watchdog');
+  assert.strictEqual(kaliWake.command, 'check cameras', 'Agent wake word should preserve the command');
+
+  const quietWake = parseWakeCommand('random room chatter', { requireWakeWord: true });
+  assert.strictEqual(quietWake.accepted, false, 'Required wake mode should ignore chatter');
 
   console.log('All tests passed.');
 }

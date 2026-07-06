@@ -3,6 +3,7 @@ const os = require('os');
 const path = require('path');
 const { execFile } = require('child_process');
 const { promisify } = require('util');
+const { parseAgentWakeWords, parseWakeCommand, parseWakeWords } = require('./WakeWords');
 
 const DEFAULT_API_BASE_URL = 'https://api.telegram.org';
 const DEFAULT_MAX_MESSAGE_LENGTH = 3900;
@@ -60,6 +61,9 @@ class TelegramBridge {
     voiceEnabled = isEnabled(process.env.TELEGRAM_VOICE_ENABLED),
     ttsEnabled = isEnabled(process.env.TELEGRAM_REPLY_AUDIO),
     maxVoiceSeconds = Number(process.env.TELEGRAM_MAX_VOICE_SECONDS || 120),
+    wakeWords = parseWakeWords(process.env.TELEGRAM_WAKE_WORDS || process.env.VOICE_WAKE_WORDS),
+    agentWakeWords = parseAgentWakeWords(process.env.AGENT_WAKE_WORDS),
+    requireWakeWord = isEnabled(process.env.TELEGRAM_REQUIRE_WAKE_WORD),
     logger = console
   } = {}) {
     if (!token) {
@@ -78,6 +82,9 @@ class TelegramBridge {
     this.voiceEnabled = voiceEnabled;
     this.ttsEnabled = ttsEnabled;
     this.maxVoiceSeconds = maxVoiceSeconds;
+    this.wakeWords = wakeWords;
+    this.agentWakeWords = agentWakeWords;
+    this.requireWakeWord = requireWakeWord;
     this.logger = logger;
     this.offset = 0;
     this.running = false;
@@ -167,10 +174,16 @@ class TelegramBridge {
       return;
     }
 
-    const command = text.replace(/^\/agent\b/i, '').trim() || 'status';
+    const commandText = text.replace(/^\/agent\b/i, '').trim() || 'status';
+    const parsed = this.parseCommand(commandText);
+
+    if (!parsed.accepted) {
+      await this.sendMessage(chatId, this.wakePrompt());
+      return;
+    }
 
     await this.call('sendChatAction', { chat_id: chatId, action: 'typing' });
-    const response = await this.director.handleCommand(command);
+    const response = await this.director.handleCommand(this.toDirectorCommand(parsed));
     await this.sendMessage(chatId, response);
     await this.maybeSendAudioReply(chatId, response);
   }
@@ -210,7 +223,14 @@ class TelegramBridge {
       }
 
       await this.sendMessage(chatId, `Heard: ${transcript}`);
-      const response = await this.director.handleCommand(transcript);
+
+      const parsed = this.parseCommand(transcript);
+      if (!parsed.accepted) {
+        await this.sendMessage(chatId, this.wakePrompt());
+        return;
+      }
+
+      const response = await this.director.handleCommand(this.toDirectorCommand(parsed));
       await this.sendMessage(chatId, response);
       await this.maybeSendAudioReply(chatId, response);
     } catch (error) {
@@ -227,6 +247,29 @@ class TelegramBridge {
     }
   }
 
+  parseCommand(text) {
+    return parseWakeCommand(text, {
+      wakeWords: this.wakeWords,
+      agentWakeWords: this.agentWakeWords,
+      requireWakeWord: this.requireWakeWord
+    });
+  }
+
+  toDirectorCommand(parsed) {
+    if (parsed.agent && parsed.agent !== 'director') {
+      return `${parsed.agent} ${parsed.command}`;
+    }
+    return parsed.command;
+  }
+
+  wakePrompt() {
+    return [
+      'Listening, but I need a wake phrase first.',
+      `Try: ${this.wakeWords.slice(0, 5).join(', ')}`,
+      'Agent aliases: watchdog, kali, scribe, librarian, critic.'
+    ].join('\n');
+  }
+
   helpText(chatId) {
     return [
       'NoxuOS Telegram bridge online.',
@@ -238,7 +281,9 @@ class TelegramBridge {
       '/id - show this chat ID',
       '/help - show this help',
       '',
-      'Voice: use phone dictation for instant text commands, or enable local Whisper for Telegram voice notes.',
+      `Wake phrases: ${this.wakeWords.slice(0, 6).join(', ')}`,
+      'Agent aliases: watchdog/kali, scribe, librarian, critic.',
+      'Voice: use phone dictation for instant text commands, or send Telegram voice notes with local Whisper enabled.',
       '',
       'Hardware actions stay supervised and require explicit approval.'
     ].join('\n');

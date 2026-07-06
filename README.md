@@ -143,6 +143,27 @@ Voice options:
 
 - Fastest: use your phone keyboard's microphone/dictation button so Telegram sends normal text to the bot.
 - Full voice notes: install Whisper and ffmpeg on the main agent, then set `TELEGRAM_VOICE_ENABLED=true`.
+- Laptop hands-free: run `npm run voice:listen` and speak a wake phrase near the laptop.
+
+Wake phrases:
+
+```text
+Director:  wake up, yo empire, hey noxu, my boy
+Security:  watchdog, security, kali, camera check, home security
+Writer:    writer, scribe
+Reviewer:  reviewer, critic
+Files:     librarian, files
+```
+
+Examples:
+
+```text
+yo empire status
+kali check cameras
+scribe write a launch update
+librarian find invoices
+critic review this summary
+```
 
 Windows Whisper setup:
 
@@ -200,6 +221,7 @@ Runtime layout:
 
 ```text
 Windows: npm run telegram
+Windows: npm run voice:listen
 Kali:    npm run worker
 Pi 5:    empire-pi.service
 ```
