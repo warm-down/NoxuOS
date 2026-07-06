@@ -128,6 +128,35 @@ npm run architecture:check
 
 `architecture:check` verifies the Pi controller, active mesh clients, AI-host Ollama, Open WebUI, Home Assistant, MQTT, ESPHome, SSH reachability, and Syncthing/storage endpoint if configured.
 
+### **Home Assistant OS On Raspberry Pi 5**
+When the Pi is flashed to Home Assistant OS, it becomes the automation appliance. The old Raspberry Pi OS service model (`apt`, `git`, `systemd`, `empire-pi.service`) no longer applies on the Pi itself.
+
+Use the HAOS runbook:
+
+```bash
+home-assistant/README.md
+```
+
+Verify from the Kali/control laptop:
+
+```bash
+cd ~/NoxuOS
+git pull
+HOME_ASSISTANT_URL=http://homeassistant.local:8123 ./tools/haos-lan-check.sh
+```
+
+If mDNS is not working, use the Pi IP:
+
+```bash
+HOME_ASSISTANT_URL=http://192.168.1.X:8123 ./tools/haos-lan-check.sh
+```
+
+After onboarding, create a Home Assistant long-lived token and run:
+
+```bash
+HOME_ASSISTANT_URL=http://192.168.1.X:8123 HOME_ASSISTANT_TOKEN="paste-token" ./tools/haos-lan-check.sh
+```
+
 Pi 5 lightweight model host:
 
 ```bash
