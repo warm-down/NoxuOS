@@ -179,6 +179,20 @@ Kali:    npm run worker
 Pi 5:    empire-pi.service
 ```
 
+Install Kali as an always-on systemd worker:
+
+```bash
+cd ~/NoxuOS
+git pull
+PI_ADDRESS=192.168.1.243 DEVICE_NAME=Kali-XPS-Security DEVICE_ROLE=security ./tools/install-agent-worker-service.sh
+```
+
+Check logs:
+
+```bash
+sudo journalctl -u noxuos-agent-worker.service -f
+```
+
 ## **How It Works**
 AI Kernel: Manages system resources, user interactions, and parallel task execution efficiently.
 Task Manager: Instead of apps, tasks are directly assigned to the OS, e.g., “Prepare a presentation” or “Check emails.”
