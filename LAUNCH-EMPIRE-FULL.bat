@@ -28,14 +28,23 @@ if not exist "node_modules" (
 )
 
 echo [1/6] Checking Ollama...
-curl -s http://127.0.0.1:11434/api/tags >nul 2>&1
+call :WAIT_OLLAMA 2
 if errorlevel 1 (
   echo Starting Ollama...
   start "" ollama serve
   timeout /t 8 >nul
+  call :WAIT_OLLAMA 4
 )
 
-curl -s http://127.0.0.1:11434/api/tags >nul 2>&1
+if errorlevel 1 (
+  echo Restarting unresponsive Ollama...
+  taskkill /IM ollama.exe /F >nul 2>&1
+  timeout /t 2 >nul
+  start "" ollama serve
+  timeout /t 8 >nul
+  call :WAIT_OLLAMA 6
+)
+
 if errorlevel 1 (
   echo Ollama is still not responding on 127.0.0.1:11434.
   popd
@@ -86,3 +95,17 @@ echo.
 call npm run interactive
 
 popd
+exit /b %errorlevel%
+
+:WAIT_OLLAMA
+set attempts=%~1
+
+:WAIT_OLLAMA_LOOP
+curl --max-time 8 -fsS http://127.0.0.1:11434/api/tags >nul 2>&1
+if not errorlevel 1 exit /b 0
+
+set /a attempts-=1
+if %attempts% LEQ 0 exit /b 1
+
+timeout /t 3 >nul
+goto WAIT_OLLAMA_LOOP

@@ -4,13 +4,51 @@ $AppDir = Split-Path -Parent (Split-Path -Parent $MyInvocation.MyCommand.Path)
 $LogDir = Join-Path $AppDir "logs"
 New-Item -ItemType Directory -Path $LogDir -Force | Out-Null
 
-function Test-HttpReady {
-  param([string]$Url)
+function Test-OllamaReady {
   try {
-    Invoke-WebRequest -UseBasicParsing -Uri $Url -TimeoutSec 3 | Out-Null
-    return $true
+    $response = Invoke-RestMethod -UseBasicParsing -Uri "http://127.0.0.1:11434/api/tags" -TimeoutSec 8
+    return (($response.models | Measure-Object).Count -gt 0)
   } catch {
     return $false
+  }
+}
+
+function Wait-OllamaReady {
+  param([int]$Attempts = 6)
+
+  for ($i = 1; $i -le $Attempts; $i++) {
+    if (Test-OllamaReady) {
+      return $true
+    }
+    Start-Sleep -Seconds 3
+  }
+
+  return $false
+}
+
+function Start-OllamaStable {
+  if (Wait-OllamaReady -Attempts 2) {
+    Write-Output "Ollama already ready."
+    return
+  }
+
+  $existing = Get-CimInstance Win32_Process |
+    Where-Object { $_.Name -eq "ollama.exe" -or $_.CommandLine -match "ollama serve" }
+
+  if ($existing) {
+    Write-Output "Restarting unresponsive Ollama..."
+    foreach ($process in $existing) {
+      Stop-Process -Id $process.ProcessId -Force -ErrorAction SilentlyContinue
+    }
+    Start-Sleep -Seconds 2
+  } else {
+    Write-Output "Starting Ollama..."
+  }
+
+  Start-Process ollama -ArgumentList "serve" -WindowStyle Hidden
+
+  if (-not (Wait-OllamaReady -Attempts 8)) {
+    throw "Ollama did not become ready on http://127.0.0.1:11434"
   }
 }
 
@@ -46,13 +84,7 @@ $Command *> '$logPath'
 
 Set-Location $AppDir
 
-if (-not (Test-HttpReady "http://127.0.0.1:11434/api/tags")) {
-  Write-Output "Starting Ollama..."
-  Start-Process ollama -ArgumentList "serve" -WindowStyle Hidden
-  Start-Sleep -Seconds 5
-} else {
-  Write-Output "Ollama already ready."
-}
+Start-OllamaStable
 
 Start-IfMissing `
   -Name "Telegram bridge" `
@@ -75,3 +107,6 @@ Start-Sleep -Seconds 3
 Write-Output ""
 Write-Output "Verifying voice stack..."
 npm run voice:verify
+if ($LASTEXITCODE -ne 0) {
+  exit $LASTEXITCODE
+}
