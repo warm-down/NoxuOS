@@ -14,6 +14,7 @@
     "interactive": "node src/interactive.js",
     "worker": "node src/worker.js",
     "telegram": "node src/telegram.js",
+    "telegram:token": "powershell -ExecutionPolicy Bypass -File scripts/set-telegram-token.ps1",
     "telegram:setup": "node scripts/telegram-setup.js"
   },
   "author": "NoxuOS",

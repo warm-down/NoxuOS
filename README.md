@@ -119,10 +119,11 @@ Create a Telegram bot with `@BotFather`, put the token in `agent-workflow-app/.e
 
 ```powershell
 cd agent-workflow-app
+npm run telegram:token
 npm run telegram:setup
 ```
 
-After sending your bot a message, run setup again and add the displayed chat ID:
+`npm run telegram:token` reads the BotFather token from your clipboard or prompts for it, then stores it in `.env` without printing it. After sending your bot a message, run setup again and add the displayed chat ID:
 
 ```env
 TELEGRAM_BOT_TOKEN=123456:your-token
