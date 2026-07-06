@@ -129,6 +129,22 @@ npm run architecture:check
 
 `architecture:check` verifies the Pi controller, active mesh clients, AI-host Ollama, Open WebUI, Home Assistant, MQTT, ESPHome, SSH reachability, and Syncthing/storage endpoint if configured.
 
+Clone or update an external repo on the normal Linux/admin nodes with:
+
+```bash
+cd ~/NoxuOS
+git pull
+NODES="pi@192.168.1.243" ./tools/sync-upsonic-nodes.sh
+```
+
+Add more SSH targets as comma-separated values:
+
+```bash
+NODES="pi@192.168.1.243,user@other-linux-box" ./tools/sync-upsonic-nodes.sh
+```
+
+Do not target the Raspberry Pi 400 running Home Assistant OS; HAOS is an appliance, not a git clone target.
+
 ### **Home Assistant OS On Raspberry Pi 400**
 The Raspberry Pi 5 remains on its current Linux operating system and keeps running NoxuOS/Linux services. Home Assistant OS is installed on the Raspberry Pi 400 using a dedicated microSD card.
 
