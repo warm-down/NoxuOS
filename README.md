@@ -101,6 +101,19 @@ MODELS="llama3.2:latest qwen2.5:7b" PI_ADDRESS=192.168.1.243 ./tools/bootstrap-o
 
 The script keeps Ollama local to each node at `127.0.0.1:11434`. It does not expose Windows Ollama to the LAN.
 
+After bootstrapping the Linux nodes, verify the fleet from Windows:
+
+```powershell
+cd agent-workflow-app
+npm run fleet:check
+```
+
+For connectivity-only checks while models are still downloading:
+
+```powershell
+$env:FLEET_REQUIRE_MODELS="false"; npm run fleet:check; Remove-Item Env:FLEET_REQUIRE_MODELS
+```
+
 ## **How It Works**
 AI Kernel: Manages system resources, user interactions, and parallel task execution efficiently.
 Task Manager: Instead of apps, tasks are directly assigned to the OS, e.g., “Prepare a presentation” or “Check emails.”
