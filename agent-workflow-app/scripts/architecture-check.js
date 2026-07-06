@@ -1,8 +1,17 @@
 require('dotenv').config();
 const net = require('net');
 
+const DEFAULT_EXPECTED_CLIENTS = 'main-laptop,Kali-XPS-Security';
+
 function env(name, fallback = '') {
   return process.env[name] || fallback;
+}
+
+function namesFromEnv(value) {
+  return String(value || '')
+    .split(',')
+    .map((item) => item.trim())
+    .filter(Boolean);
 }
 
 function stripSlash(url) {
@@ -72,6 +81,7 @@ function print(name, ok, detail, critical = false) {
 
 async function checkPi(results) {
   const piHost = stripSlash(env('PI_HOST', 'http://pi5.local:5000'));
+  const expectedClients = namesFromEnv(env('FLEET_EXPECTED', DEFAULT_EXPECTED_CLIENTS));
 
   try {
     const health = await httpJson(`${piHost}/health`);
@@ -91,10 +101,14 @@ async function checkPi(results) {
   try {
     const bus = await httpJson(`${piHost}/bus/clients`);
     const clients = bus.data?.clients || [];
+    const missing = expectedClients.filter((name) => !clients.includes(name));
     const detail = bus.ok
-      ? (clients.length ? clients.join(', ') : 'none')
+      ? [
+        clients.length ? clients.join(', ') : 'none',
+        missing.length ? `missing expected: ${missing.join(', ')}` : 'expected clients connected'
+      ].join('; ')
       : `${piHost}/bus/clients HTTP ${bus.status}`;
-    results.push(print('Pi active bus clients', bus.ok, detail, true));
+    results.push(print('Pi active bus clients', bus.ok && missing.length === 0, detail, true));
   } catch (error) {
     results.push(print('Pi active bus clients', false, 'pi-controller needs pull/restart for /bus/clients', true));
   }

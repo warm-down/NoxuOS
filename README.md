@@ -319,6 +319,12 @@ npm run voice:stack
 
 `voice:stack` starts Ollama if needed, starts the Telegram bridge, starts the laptop microphone listener, then runs service verification.
 
+After restarting the Pi controller, force the Windows bridges to reconnect:
+
+```powershell
+npm run voice:restart
+```
+
 Verify the stack without starting new processes:
 
 ```powershell

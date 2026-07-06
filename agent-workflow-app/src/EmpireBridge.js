@@ -11,7 +11,9 @@ class EmpireBridge {
     wsUrl = process.env.EMPIRE_WS || 'ws://pi5.local:8765',
     deviceName = process.env.DEVICE_NAME || os.hostname(),
     role = process.env.DEVICE_ROLE || 'worker',
-    provider = createDefaultProvider()
+    provider = createDefaultProvider(),
+    autoReconnect = process.env.EMPIRE_AUTO_RECONNECT !== 'false',
+    reconnectDelayMs = Number(process.env.EMPIRE_RECONNECT_DELAY_MS || 5000)
   } = {}) {
     this.piHost = piHost.replace(/\/$/, '');
     this.wsUrl = wsUrl;
@@ -23,6 +25,11 @@ class EmpireBridge {
     this.standalone = false;
     this.pendingTasks = new Map();
     this.logger = createLogger('empire-bridge');
+    this.autoReconnect = autoReconnect;
+    this.reconnectDelayMs = reconnectDelayMs;
+    this.reconnectTimer = null;
+    this.closedByUser = false;
+    this.connecting = false;
   }
 
   async connect() {
@@ -68,16 +75,28 @@ class EmpireBridge {
 
   connectAgentBus() {
     return new Promise((resolve, reject) => {
+      if (this.connecting) {
+        reject(new Error('agent bus connection already in progress'));
+        return;
+      }
+
+      this.connecting = true;
       const ws = new WebSocket(this.wsUrl);
+      let settled = false;
       const timer = setTimeout(() => {
         ws.close();
+        this.connecting = false;
+        settled = true;
         reject(new Error('agent bus connection timed out'));
       }, 3000);
 
       ws.on('open', () => {
         clearTimeout(timer);
+        this.connecting = false;
+        settled = true;
         this.ws = ws;
         this.connected = true;
+        this.standalone = false;
         this.send({
           type: 'register',
           agent_id: this.deviceName,
@@ -112,16 +131,52 @@ class EmpireBridge {
       });
 
       ws.on('close', () => {
+        clearTimeout(timer);
+        this.connecting = false;
         this.connected = false;
         this.ws = null;
         this.logger.warn('empire.bus.closed', { wsUrl: this.wsUrl });
+        this.scheduleReconnect('bus closed');
       });
 
       ws.on('error', (error) => {
+        clearTimeout(timer);
+        this.connecting = false;
         this.logger.error('empire.bus.error', error, { wsUrl: this.wsUrl });
-        reject(error);
+        if (!settled) {
+          settled = true;
+          reject(error);
+          return;
+        }
+        this.scheduleReconnect(error.message);
       });
     });
+  }
+
+  scheduleReconnect(reason) {
+    if (!this.autoReconnect || this.closedByUser || this.reconnectTimer) return;
+
+    this.logger.warn('empire.reconnect.scheduled', {
+      reason,
+      delayMs: this.reconnectDelayMs,
+      piHost: this.piHost,
+      wsUrl: this.wsUrl
+    });
+
+    this.reconnectTimer = setTimeout(async () => {
+      this.reconnectTimer = null;
+      if (this.closedByUser || this.connected) return;
+
+      try {
+        const registration = await this.buildRegistration();
+        await this.registerWithController(registration);
+        await this.connectAgentBus();
+        this.logger.action('empire.reconnect.complete', { registration });
+      } catch (error) {
+        this.logger.error('empire.reconnect.failed', error);
+        this.scheduleReconnect(error.message);
+      }
+    }, this.reconnectDelayMs);
   }
 
   async getAvailableModels() {
@@ -295,6 +350,12 @@ class EmpireBridge {
   }
 
   close() {
+    this.closedByUser = true;
+    if (this.reconnectTimer) {
+      clearTimeout(this.reconnectTimer);
+      this.reconnectTimer = null;
+    }
+
     for (const [id, pending] of this.pendingTasks.entries()) {
       clearTimeout(pending.timer);
       pending.reject(new Error('Empire bridge closed before task completed.'));
