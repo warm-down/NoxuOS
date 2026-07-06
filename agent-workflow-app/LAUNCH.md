@@ -71,6 +71,23 @@ npm run interactive
 
 Type `status` to see local models and loaded skills. Type `exit` to quit.
 
+## Watchdog
+
+Watchdog checks local listening ports by default. LAN reachability scans are opt-in:
+
+```env
+WATCHDOG_ENABLE_NETWORK_SCAN=true
+WATCHDOG_SUBNET=192.168.1
+```
+
+## Web Dashboard
+
+Open `../web-dashboard/index.html` in a browser while the Pi controller or agent bus is running. Override the WebSocket URL with:
+
+```text
+index.html?ws=ws://pi5.local:8765
+```
+
 ## XPS 13 Next
 
 On the XPS 13:

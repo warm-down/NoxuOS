@@ -1,5 +1,6 @@
 const { WriterAgent, ReviewerAgent } = require('./Agent');
 const { LibrarianAgent } = require('./LibrarianAgent');
+const { WatchdogAgent } = require('./WatchdogAgent');
 const { WorkflowEngine } = require('./WorkflowEngine');
 
 function normalizeList(value, fallback) {
@@ -32,7 +33,8 @@ class DirectorAgent {
     this.agents = {
       writer: new WriterAgent(provider),
       reviewer: new ReviewerAgent(provider),
-      librarian: new LibrarianAgent(provider)
+      librarian: new LibrarianAgent(provider),
+      watchdog: new WatchdogAgent(provider)
     };
     this.memory = [];
     this.maxMemory = 10;
@@ -65,7 +67,7 @@ Available agents:
 - writer: drafting, writing, editing, announcements, summaries
 - reviewer: critique, review, improve, evaluate text
 - librarian: file organization/search/analyze files
-- watchdog: monitoring/security status (not implemented)
+- watchdog: defensive monitoring, local ports, optional LAN reachability checks
 - maestro: music/audio/creative production (not implemented)
 - procurer: hardware/spec planning; physical actions require approval
 
@@ -103,16 +105,16 @@ Reply only as JSON: {"agent":"name","task":"description","response":"brief user-
       return { agent: 'librarian', task: input, response: 'Routing to Librarian.' };
     }
 
-    if (/\b(turn on|turn off|activate|open|close|gpio|relay|motor|hardware)\b/.test(lower)) {
+    if (/\b(security|scan|monitor|alert|watch|ports?|listening|network)\b/.test(lower)) {
+      return { agent: 'watchdog', task: input, response: 'Routing to Watchdog.' };
+    }
+
+    if (/\b(turn on|turn off|activate|open device|close device|gpio|relay|motor|hardware)\b/.test(lower)) {
       return {
         agent: 'procurer',
         task: input,
         response: `[HARDWARE APPROVAL REQUIRED] ${input}\nPhysical device execution is not automatic. Use the supervised hardware controller after explicit approval.`
       };
-    }
-
-    if (/\b(security|scan|monitor|alert|watch)\b/.test(lower)) {
-      return { agent: 'watchdog', task: input, response: 'Watchdog is queued but not implemented yet.' };
     }
 
     if (/\b(music|audio|mix|song|voice)\b/.test(lower)) {
@@ -153,7 +155,12 @@ Reply only as JSON: {"agent":"name","task":"description","response":"brief user-
       return decision.response || '[HARDWARE APPROVAL REQUIRED] Physical actions require explicit approval.';
     }
 
-    if (['watchdog', 'maestro'].includes(agent)) {
+    if (agent === 'watchdog') {
+      const report = await this.agents.watchdog.analyzeSecurity();
+      return this.agents.watchdog.formatReport(report);
+    }
+
+    if (['maestro'].includes(agent)) {
       return `${decision.response || `${agent} is not implemented yet.`}\nQueued task: ${task}`;
     }
 

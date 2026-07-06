@@ -3,7 +3,7 @@
     { "name": "writing", "source": "local-agent", "role": "Create and edit documents, drafts, announcements", "agent": "writer" },
     { "name": "review", "source": "local-agent", "role": "Analyze and critique content", "agent": "reviewer" },
     { "name": "file_management", "source": "local-agent", "role": "Organize, search, and analyze files", "agent": "librarian" },
-    { "name": "security_monitor", "source": "planned-agent", "role": "Monitor network and system security", "agent": "watchdog" },
+    { "name": "security_monitor", "source": "local-agent", "role": "Monitor local ports and optional LAN reachability", "agent": "watchdog" },
     { "name": "audio_production", "source": "planned-agent", "role": "Music, audio editing, sound design", "agent": "maestro" },
     { "name": "hardware_control", "source": "supervised-agent", "role": "Plan physical device actions with approval gates", "agent": "procurer" },
     { "name": "imagegen", "source": "codex-system", "role": "Generate or edit bitmap visuals" },

@@ -3,6 +3,7 @@ const { WorkflowEngine } = require('../src/WorkflowEngine');
 const { MockProvider } = require('../src/AIProvider');
 const { DirectorAgent } = require('../src/DirectorAgent');
 const { LibrarianAgent } = require('../src/LibrarianAgent');
+const { WatchdogAgent } = require('../src/WatchdogAgent');
 
 async function runTests() {
   const provider = new MockProvider();
@@ -32,6 +33,11 @@ async function runTests() {
   const librarian = new LibrarianAgent(provider, { rootDir: process.cwd() });
   const files = await librarian.searchFiles('package*.json', process.cwd(), 5);
   assert.ok(files.some((file) => file.path.endsWith('package.json')), 'Librarian should support wildcard file search');
+
+  const watchdog = new WatchdogAgent(provider, { enableNetworkScan: false });
+  const watchdogReport = await watchdog.analyzeSecurity();
+  assert.ok(watchdogReport.assessment, 'Watchdog should produce an assessment');
+  assert.strictEqual(watchdogReport.network.skipped, true, 'Network scan should be opt-in for tests');
 
   console.log('All tests passed.');
 }

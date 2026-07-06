@@ -58,6 +58,8 @@ To talk to the agents in a persistent command center:
 npm run interactive
 ```
 
+Watchdog network scanning is opt-in. Set `WATCHDOG_ENABLE_NETWORK_SCAN=true` only when you want a local `/24` reachability check.
+
 ## Extending the framework
 
 This sample app supports mock, OpenAI, and Ollama providers. Add new agent roles in `src/Agent.js` and route them through `WorkflowEngine`.

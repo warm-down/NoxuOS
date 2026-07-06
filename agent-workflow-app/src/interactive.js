@@ -43,6 +43,7 @@ Commands:
   <anything>      Talk to The Director
   file: <path>    Ask Librarian to analyze a file
   search: <term>  Search files under LIBRARIAN_ROOT/current app folder
+  scan network    Run Watchdog defensive status check
   organize        Suggest organization for the current root
   status          Show local node, models, and loaded skills
   voice           Start CLI voice fallback

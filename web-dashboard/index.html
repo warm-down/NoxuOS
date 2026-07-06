@@ -1,0 +1,114 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>NoxuOS Agent Dashboard</title>
+  <style>
+    body {
+      background: #101114;
+      color: #f2f2f2;
+      font-family: Arial, sans-serif;
+      margin: 0;
+      padding: 24px;
+    }
+    main {
+      max-width: 880px;
+      margin: 0 auto;
+    }
+    input, button {
+      font: inherit;
+      padding: 10px;
+    }
+    input {
+      width: min(620px, 100%);
+      background: #181a20;
+      color: #fff;
+      border: 1px solid #3b3f4a;
+    }
+    button {
+      background: #3da35d;
+      color: #071008;
+      border: 0;
+      cursor: pointer;
+    }
+    pre {
+      background: #181a20;
+      border: 1px solid #30343d;
+      padding: 12px;
+      overflow: auto;
+      white-space: pre-wrap;
+    }
+    .row {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin: 16px 0;
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>NoxuOS Agent Dashboard</h1>
+    <p id="status">Disconnected</p>
+    <div class="row">
+      <input id="command-input" placeholder="status, scan network, write a launch note">
+      <button id="send-button">Send</button>
+    </div>
+    <pre id="agent-output"></pre>
+  </main>
+
+  <script>
+    const output = document.getElementById('agent-output');
+    const status = document.getElementById('status');
+    const input = document.getElementById('command-input');
+    const button = document.getElementById('send-button');
+    const wsUrl = new URLSearchParams(location.search).get('ws') || 'ws://localhost:8765';
+    const ws = new WebSocket(wsUrl);
+
+    function log(message) {
+      output.textContent += `${message}\n`;
+      output.scrollTop = output.scrollHeight;
+    }
+
+    ws.onopen = () => {
+      status.textContent = `Connected to ${wsUrl}`;
+      ws.send(JSON.stringify({
+        type: 'register',
+        agent_id: 'web_dashboard',
+        role: 'interface'
+      }));
+    };
+
+    ws.onmessage = (event) => {
+      log(event.data);
+    };
+
+    ws.onerror = () => {
+      status.textContent = 'WebSocket error';
+    };
+
+    ws.onclose = () => {
+      status.textContent = 'Disconnected';
+    };
+
+    function sendCommand() {
+      const command = input.value.trim();
+      if (!command || ws.readyState !== WebSocket.OPEN) return;
+      ws.send(JSON.stringify({
+        type: 'command',
+        target: 'director',
+        command: 'run_agent',
+        task: { prompt: command, maxTokens: 256 }
+      }));
+      log(`> ${command}`);
+      input.value = '';
+    }
+
+    button.addEventListener('click', sendCommand);
+    input.addEventListener('keydown', (event) => {
+      if (event.key === 'Enter') sendCommand();
+    });
+  </script>
+</body>
+</html>
