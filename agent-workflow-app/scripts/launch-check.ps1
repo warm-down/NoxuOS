@@ -3,6 +3,30 @@ $ErrorActionPreference = 'Stop'
 Write-Host "NoxuOS local agent launch check" -ForegroundColor Cyan
 Write-Host "================================" -ForegroundColor Cyan
 
+function Invoke-WithRetry {
+  param(
+    [scriptblock]$Operation,
+    [int]$Attempts = 3,
+    [int]$DelaySeconds = 3,
+    [string]$Label = "operation"
+  )
+
+  $lastError = $null
+  for ($attempt = 1; $attempt -le $Attempts; $attempt++) {
+    try {
+      return & $Operation
+    } catch {
+      $lastError = $_
+      if ($attempt -lt $Attempts) {
+        Write-Host "$Label failed (attempt $attempt/$Attempts). Retrying..." -ForegroundColor Yellow
+        Start-Sleep -Seconds $DelaySeconds
+      }
+    }
+  }
+
+  throw $lastError
+}
+
 if (-not (Get-Command ollama -ErrorAction SilentlyContinue)) {
   throw "Ollama is not installed or is not on PATH."
 }
@@ -16,7 +40,11 @@ if (-not $baseUrl) {
 }
 
 Write-Host "`nChecking Ollama API at $baseUrl ..." -ForegroundColor Yellow
-$tags = Invoke-RestMethod -Uri "$baseUrl/api/tags" -Method Get -TimeoutSec 5
+$tags = Invoke-WithRetry `
+  -Label "Ollama tags check" `
+  -Attempts 5 `
+  -DelaySeconds 3 `
+  -Operation { Invoke-RestMethod -Uri "$baseUrl/api/tags" -Method Get -TimeoutSec 8 }
 if (-not $tags.models -or $tags.models.Count -eq 0) {
   throw "Ollama is reachable, but no models are installed."
 }
@@ -35,6 +63,9 @@ Write-Host "Using model: $model" -ForegroundColor Green
 
 Write-Host "`nRunning deterministic app tests..." -ForegroundColor Yellow
 npm test
+if ($LASTEXITCODE -ne 0) {
+  exit $LASTEXITCODE
+}
 
 Write-Host "`nRunning live Ollama readiness smoke test..." -ForegroundColor Yellow
 $body = @{
@@ -53,7 +84,11 @@ $body = @{
   }
 } | ConvertTo-Json -Depth 8
 
-$smoke = Invoke-RestMethod -Uri "$baseUrl/api/chat" -Method Post -ContentType 'application/json' -Body $body -TimeoutSec 45
+$smoke = Invoke-WithRetry `
+  -Label "Ollama smoke test" `
+  -Attempts 2 `
+  -DelaySeconds 5 `
+  -Operation { Invoke-RestMethod -Uri "$baseUrl/api/chat" -Method Post -ContentType 'application/json' -Body $body -TimeoutSec 120 }
 $content = $smoke.message.content.Trim()
 Write-Host "Ollama replied: $content" -ForegroundColor Green
 
