@@ -145,13 +145,13 @@ Verify from the Kali/control laptop:
 ```bash
 cd ~/NoxuOS
 git pull
-HOME_ASSISTANT_URL=http://homeassistant.local:8123 ./tools/haos-lan-check.sh
+./tools/pi400-haos-ready-check.sh
 ```
 
 If mDNS is not working, use the Pi IP:
 
 ```bash
-HOME_ASSISTANT_URL=http://192.168.1.X:8123 ./tools/haos-lan-check.sh
+PI400_IP=192.168.1.X ./tools/pi400-haos-ready-check.sh
 ```
 
 Use the Pi 400 IP for `192.168.1.X`, not the Pi 5 IP.
@@ -159,7 +159,7 @@ Use the Pi 400 IP for `192.168.1.X`, not the Pi 5 IP.
 After onboarding, create a Home Assistant long-lived token and run:
 
 ```bash
-HOME_ASSISTANT_URL=http://192.168.1.X:8123 HOME_ASSISTANT_TOKEN="paste-token" ./tools/haos-lan-check.sh
+PI400_IP=192.168.1.X HOME_ASSISTANT_TOKEN="paste-token" ./tools/pi400-haos-ready-check.sh
 ```
 
 Pi 5 lightweight model host:
