@@ -39,12 +39,14 @@ class OllamaProvider {
     baseUrl = 'http://127.0.0.1:11434',
     model = 'llama3.2:latest',
     temperature = 0.7,
-    maxTokens = 256
+    maxTokens = 256,
+    contextWindow = 2048
   } = {}) {
     this.baseUrl = baseUrl.replace(/\/$/, '');
     this.model = model;
     this.temperature = temperature;
     this.maxTokens = maxTokens;
+    this.contextWindow = contextWindow;
   }
 
   async generate({ system, messages = [], user, temperature, format, maxTokens } = {}) {
@@ -69,7 +71,8 @@ class OllamaProvider {
         format,
         options: {
           temperature: temperature ?? this.temperature,
-          num_predict: maxTokens ?? this.maxTokens
+          num_predict: maxTokens ?? this.maxTokens,
+          num_ctx: this.contextWindow
         }
       })
     });
@@ -141,7 +144,8 @@ function createDefaultProvider() {
       baseUrl: ollamaBaseUrl,
       model: process.env.OLLAMA_MODEL || 'llama3.2:latest',
       temperature: Number(process.env.OLLAMA_TEMPERATURE || process.env.OPENAI_TEMPERATURE || '0.7'),
-      maxTokens: Number(process.env.OLLAMA_MAX_TOKENS || '256')
+      maxTokens: Number(process.env.OLLAMA_MAX_TOKENS || '256'),
+      contextWindow: Number(process.env.OLLAMA_CONTEXT_WINDOW || '2048')
     });
   }
 

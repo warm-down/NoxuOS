@@ -48,6 +48,12 @@ To check the future Pi 5 mesh bridge:
 npm run bridge:check
 ```
 
+To talk to the agents in a persistent command center:
+
+```powershell
+npm run interactive
+```
+
 ## Extending the framework
 
 This sample app supports mock, OpenAI, and Ollama providers. Add new agent roles in `src/Agent.js` and route them through `WorkflowEngine`.

@@ -8,6 +8,7 @@ This computer is the first NoxuOS local agent node. It runs the agent workflow t
 - Local model server: Ollama at `http://127.0.0.1:11434`
 - Default launch model: `llama3.2:latest`
 - Default generation cap: `OLLAMA_MAX_TOKENS=256`
+- Default context cap: `OLLAMA_CONTEXT_WINDOW=2048`
 - Bigger local models available on this machine include `dolphin-mixtral:latest`, `wizard-vicuna:latest`, `nous-hermes2:latest`, `qwen2.5:7b`, and `dolphin3:latest`.
 
 ## Verify This Computer
@@ -51,6 +52,7 @@ AI_PROVIDER=ollama
 OLLAMA_BASE_URL=http://127.0.0.1:11434
 OLLAMA_MODEL=llama3.2:latest
 OLLAMA_MAX_TOKENS=256
+OLLAMA_CONTEXT_WINDOW=2048
 ```
 
 Use `llama3.2:latest` for fast checks. Use larger models only when you want stronger output and can tolerate slower runs.
@@ -60,6 +62,14 @@ Run the full demo separately:
 ```powershell
 npm start
 ```
+
+Run the persistent command center:
+
+```powershell
+npm run interactive
+```
+
+Type `status` to see local models and loaded skills. Type `exit` to quit.
 
 ## XPS 13 Next
 

@@ -49,6 +49,7 @@ $body = @{
   options = @{
     temperature = 0
     num_predict = 8
+    num_ctx = 2048
   }
 } | ConvertTo-Json -Depth 8
 
