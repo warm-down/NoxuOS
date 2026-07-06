@@ -4,6 +4,7 @@ const { MockProvider } = require('../src/AIProvider');
 const { DirectorAgent } = require('../src/DirectorAgent');
 const { LibrarianAgent } = require('../src/LibrarianAgent');
 const { WatchdogAgent } = require('../src/WatchdogAgent');
+const { TelegramBridge, parseAllowedChatIds, splitMessage } = require('../src/TelegramBridge');
 
 async function runTests() {
   const provider = new MockProvider();
@@ -38,6 +39,23 @@ async function runTests() {
   const watchdogReport = await watchdog.analyzeSecurity();
   assert.ok(watchdogReport.assessment, 'Watchdog should produce an assessment');
   assert.strictEqual(watchdogReport.network.skipped, true, 'Network scan should be opt-in for tests');
+
+  const allowed = parseAllowedChatIds('123, 456');
+  assert.ok(allowed.has('123'), 'Telegram allowlist should parse first chat ID');
+  assert.ok(allowed.has('456'), 'Telegram allowlist should parse second chat ID');
+
+  const chunks = splitMessage('a'.repeat(9000), 1000);
+  assert.ok(chunks.length > 1, 'Telegram bridge should split long messages');
+  assert.ok(chunks.every((chunk) => chunk.length <= 1000), 'Telegram chunks should respect the limit');
+
+  const telegram = new TelegramBridge({
+    token: 'test-token',
+    director,
+    allowedChatIds: parseAllowedChatIds('42'),
+    apiBaseUrl: 'https://example.invalid'
+  });
+  assert.strictEqual(telegram.isChatAllowed(42), true, 'Telegram should allow configured chat IDs');
+  assert.strictEqual(telegram.isChatAllowed(43), false, 'Telegram should reject unknown chat IDs');
 
   console.log('All tests passed.');
 }

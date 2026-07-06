@@ -11,7 +11,9 @@
     "launch:check": "powershell -ExecutionPolicy Bypass -File scripts/launch-check.ps1",
     "bridge:check": "node scripts/bridge-check.js",
     "fleet:check": "node scripts/fleet-check.js",
-    "interactive": "node src/interactive.js"
+    "interactive": "node src/interactive.js",
+    "telegram": "node src/telegram.js",
+    "telegram:setup": "node scripts/telegram-setup.js"
   },
   "author": "NoxuOS",
   "license": "Apache-2.0",

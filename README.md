@@ -114,6 +114,30 @@ For connectivity-only checks while models are still downloading:
 $env:FLEET_REQUIRE_MODELS="false"; npm run fleet:check; Remove-Item Env:FLEET_REQUIRE_MODELS
 ```
 
+### **Telegram Main Agent Bridge**
+Create a Telegram bot with `@BotFather`, put the token in `agent-workflow-app/.env`, then discover your private chat ID.
+
+```powershell
+cd agent-workflow-app
+npm run telegram:setup
+```
+
+After sending your bot a message, run setup again and add the displayed chat ID:
+
+```env
+TELEGRAM_BOT_TOKEN=123456:your-token
+TELEGRAM_ALLOWED_CHAT_ID=123456789
+TELEGRAM_ALLOW_ALL=false
+```
+
+Start the supervised bridge:
+
+```powershell
+npm run telegram
+```
+
+Unknown chats are rejected by default and hardware actions remain approval-gated.
+
 ## **How It Works**
 AI Kernel: Manages system resources, user interactions, and parallel task execution efficiently.
 Task Manager: Instead of apps, tasks are directly assigned to the OS, e.g., “Prepare a presentation” or “Check emails.”
