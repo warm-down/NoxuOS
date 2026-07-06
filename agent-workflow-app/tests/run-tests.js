@@ -58,6 +58,26 @@ async function runTests() {
   });
   assert.strictEqual(telegram.isChatAllowed(42), true, 'Telegram should allow configured chat IDs');
   assert.strictEqual(telegram.isChatAllowed(43), false, 'Telegram should reject unknown chat IDs');
+  assert.ok(telegram.helpText(42).includes('Voice'), 'Telegram help should mention voice command options');
+
+  const voiceMessages = [];
+  const voiceTelegram = new TelegramBridge({
+    token: 'test-token',
+    director,
+    allowedChatIds: parseAllowedChatIds('42'),
+    apiBaseUrl: 'https://example.invalid'
+  });
+  voiceTelegram.sendMessage = async (_chatId, text) => voiceMessages.push(text);
+  await voiceTelegram.handleUpdate({
+    message: {
+      chat: { id: 42 },
+      voice: { file_id: 'voice-file', duration: 1 }
+    }
+  });
+  assert.ok(
+    voiceMessages.some((message) => message.includes('local transcription is disabled')),
+    'Telegram voice notes should fail safely when transcription is disabled'
+  );
 
   assert.strictEqual(normalizeSubnet('192.168.1'), '192.168.1.0/24', 'Camera scanner should normalize three-octet subnets');
   assert.strictEqual(assertAllowedSubnet('192.168.1', ['192.168.1.0/24']), '192.168.1.0/24', 'Camera scanner should allow configured private subnets');

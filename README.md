@@ -138,6 +138,30 @@ npm run telegram
 
 Unknown chats are rejected by default and hardware actions remain approval-gated.
 
+Voice options:
+
+- Fastest: use your phone keyboard's microphone/dictation button so Telegram sends normal text to the bot.
+- Full voice notes: install Whisper and ffmpeg on the main agent, then set `TELEGRAM_VOICE_ENABLED=true`.
+
+Windows Whisper setup:
+
+```powershell
+python -m pip install -U openai-whisper
+winget install Gyan.FFmpeg
+```
+
+Voice-note `.env` settings:
+
+```env
+TELEGRAM_VOICE_ENABLED=true
+TELEGRAM_WHISPER_COMMAND=whisper
+TELEGRAM_WHISPER_MODEL=base
+TELEGRAM_WHISPER_LANGUAGE=en
+TELEGRAM_REPLY_AUDIO=false
+```
+
+Set `TELEGRAM_REPLY_AUDIO=true` if you want the bridge to send a generated audio reply as well as text. On Windows it uses built-in `System.Speech`; on Linux it expects `espeak`.
+
 ### **Authorized Camera Checks From Telegram**
 Camera checks are routed to the configured security node, usually Kali. They only scan approved private `/24` subnets and only check common camera service ports.
 
