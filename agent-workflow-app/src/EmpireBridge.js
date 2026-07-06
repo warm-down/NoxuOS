@@ -1,6 +1,7 @@
 const os = require('os');
 const WebSocket = require('ws');
 const { createDefaultProvider } = require('./AIProvider');
+const { CameraScanner } = require('./CameraScanner');
 const skillRegistry = require('../config/skills.json');
 
 class EmpireBridge {
@@ -19,6 +20,7 @@ class EmpireBridge {
     this.ws = null;
     this.connected = false;
     this.standalone = false;
+    this.pendingTasks = new Map();
   }
 
   async connect() {
@@ -82,10 +84,17 @@ class EmpireBridge {
       });
 
       ws.on('message', async (data) => {
+        let message = {};
         try {
-          await this.handleCommand(JSON.parse(data.toString()));
+          message = JSON.parse(data.toString());
+          await this.handleCommand(message);
         } catch (error) {
-          this.send({ type: 'error', from: this.deviceName, message: error.message });
+          this.send({
+            type: 'error',
+            from: this.deviceName,
+            task_id: message.id,
+            message: error.message
+          });
         }
       });
 
@@ -126,11 +135,26 @@ class EmpireBridge {
   }
 
   async handleCommand(message) {
+    if (message.type === 'task_complete') {
+      this.resolvePendingTask(message.task_id, null, message.result);
+      return;
+    }
+
+    if (message.type === 'error' && message.task_id) {
+      this.resolvePendingTask(message.task_id, new Error(message.message || 'Remote task failed'));
+      return;
+    }
+
     if (message.target && message.target !== this.deviceName) return;
 
     switch (message.command) {
       case 'run_agent': {
         const result = await this.executeAgentTask(message.task || {});
+        this.reportResult(message.id, result);
+        break;
+      }
+      case 'camera_sweep': {
+        const result = await this.executeCameraSweep(message.task || {});
         this.reportResult(message.id, result);
         break;
       }
@@ -180,6 +204,48 @@ class EmpireBridge {
     });
   }
 
+  async executeCameraSweep(task) {
+    if (!['security', 'worker', 'coordinator'].includes(this.role)) {
+      throw new Error(`camera_sweep is not enabled for role ${this.role}`);
+    }
+
+    const scanner = new CameraScanner();
+    const report = await scanner.scan({ subnet: task.subnet });
+    return scanner.format(report);
+  }
+
+  requestTask({ target, command, task = {}, timeoutMs = 60000 }) {
+    if (!this.connected) {
+      return Promise.reject(new Error('Empire mesh is not connected.'));
+    }
+    if (!target) {
+      return Promise.reject(new Error('Remote task requires a target node.'));
+    }
+
+    const id = `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+
+    return new Promise((resolve, reject) => {
+      const timer = setTimeout(() => {
+        this.pendingTasks.delete(id);
+        reject(new Error(`Remote task timed out: ${command} -> ${target}`));
+      }, timeoutMs);
+
+      this.pendingTasks.set(id, { resolve, reject, timer });
+      this.send({ id, target, command, task });
+    });
+  }
+
+  resolvePendingTask(taskId, error, result) {
+    const pending = this.pendingTasks.get(taskId);
+    if (!pending) return;
+
+    clearTimeout(pending.timer);
+    this.pendingTasks.delete(taskId);
+
+    if (error) pending.reject(error);
+    else pending.resolve(result);
+  }
+
   async migrateAgent(agentName, toDevice) {
     console.log(`[EMPIRE] Migration requested for ${agentName} to ${toDevice}`);
     this.send({ type: 'migration_not_ready', from: this.deviceName, agent: agentName, toDevice });
@@ -192,6 +258,12 @@ class EmpireBridge {
   }
 
   close() {
+    for (const [id, pending] of this.pendingTasks.entries()) {
+      clearTimeout(pending.timer);
+      pending.reject(new Error('Empire bridge closed before task completed.'));
+      this.pendingTasks.delete(id);
+    }
+
     if (this.ws) {
       this.ws.close();
       this.ws = null;

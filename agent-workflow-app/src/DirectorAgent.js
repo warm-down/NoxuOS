@@ -26,6 +26,17 @@ function parseJsonObject(text) {
   }
 }
 
+function extractSubnet(input) {
+  const value = String(input || '');
+  const cidr = value.match(/\b(?:10|172|192)\.\d{1,3}\.\d{1,3}\.0\/24\b/);
+  if (cidr) return cidr[0];
+
+  const threeOctets = value.match(/\b(?:10|172|192)\.\d{1,3}\.\d{1,3}\b/);
+  if (threeOctets) return threeOctets[0];
+
+  return process.env.CAMERA_SCAN_SUBNET || process.env.WATCHDOG_SUBNET || '192.168.1.0/24';
+}
+
 class DirectorAgent {
   constructor(provider, empireBridge) {
     this.provider = provider;
@@ -93,6 +104,10 @@ Reply only as JSON: {"agent":"name","task":"description","response":"brief user-
   routeWithHeuristics(input) {
     const lower = input.toLowerCase();
 
+    if (/\b(cameras?|rtsp|security sweep|home security)\b/.test(lower)) {
+      return { agent: 'watchdog', task: input, response: 'Routing to Watchdog security node.' };
+    }
+
     if (/\b(review|critique|check|improve|feedback)\b/.test(lower)) {
       return { agent: 'reviewer', task: input, response: 'Routing to Reviewer.' };
     }
@@ -156,6 +171,10 @@ Reply only as JSON: {"agent":"name","task":"description","response":"brief user-
     }
 
     if (agent === 'watchdog') {
+      if (/\b(cameras?|rtsp|home security)\b/i.test(task)) {
+        return this.runRemoteCameraSweep(task);
+      }
+
       const report = await this.agents.watchdog.analyzeSecurity();
       return this.agents.watchdog.formatReport(report);
     }
@@ -189,6 +208,37 @@ Reply only as JSON: {"agent":"name","task":"description","response":"brief user-
       `Skills: ${registration.skills.length ? registration.skills.join(', ') : 'none loaded'}`
     ].join('\n');
   }
+
+  async runRemoteCameraSweep(task) {
+    const target = process.env.SECURITY_NODE_NAME || 'Kali-XPS-Security';
+    const subnet = extractSubnet(task);
+
+    if (!this.empire?.connected || typeof this.empire.requestTask !== 'function') {
+      return [
+        'Camera sweep unavailable: mesh is not connected.',
+        `Target security node: ${target}`,
+        `Requested subnet: ${subnet}`,
+        'Run npm run bridge:check and confirm Kali is online before trying again.'
+      ].join('\n');
+    }
+
+    try {
+      const result = await this.empire.requestTask({
+        target,
+        command: 'camera_sweep',
+        task: { subnet },
+        timeoutMs: Number(process.env.CAMERA_SWEEP_TIMEOUT_MS || 90000)
+      });
+
+      return [`Kali camera sweep via ${target}:`, result].join('\n\n');
+    } catch (error) {
+      return [
+        `Camera sweep failed on ${target}: ${error.message}`,
+        `Requested subnet: ${subnet}`,
+        'Make sure Kali is running the updated agent, and CAMERA_SCAN_ALLOWED_SUBNETS includes this subnet.'
+      ].join('\n');
+    }
+  }
 }
 
-module.exports = { DirectorAgent };
+module.exports = { DirectorAgent, extractSubnet };

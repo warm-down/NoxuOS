@@ -138,6 +138,38 @@ npm run telegram
 
 Unknown chats are rejected by default and hardware actions remain approval-gated.
 
+### **Authorized Camera Checks From Telegram**
+Camera checks are routed to the configured security node, usually Kali. They only scan approved private `/24` subnets and only check common camera service ports.
+
+Configure the main agent and Kali with:
+
+```env
+SECURITY_NODE_NAME=Kali-XPS-Security
+CAMERA_SCAN_SUBNET=192.168.1.0/24
+CAMERA_SCAN_ALLOWED_SUBNETS=192.168.1.0/24
+CAMERA_SCAN_PORTS=80,443,554,8080,8888
+```
+
+Update Kali so it can receive the mesh command:
+
+```bash
+cd ~/NoxuOS
+git pull
+cd agent-workflow-app
+npm install
+npm run bridge:check
+```
+
+Then message Telegram:
+
+```text
+check cameras
+check cameras on 192.168.1.0/24
+home security camera sweep
+```
+
+The scanner reports web and RTSP candidates only. It does not attempt logins, password guessing, authentication bypass, or public camera discovery.
+
 ## **How It Works**
 AI Kernel: Manages system resources, user interactions, and parallel task execution efficiently.
 Task Manager: Instead of apps, tasks are directly assigned to the OS, e.g., “Prepare a presentation” or “Check emails.”

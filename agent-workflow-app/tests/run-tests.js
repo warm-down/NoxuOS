@@ -5,6 +5,8 @@ const { DirectorAgent } = require('../src/DirectorAgent');
 const { LibrarianAgent } = require('../src/LibrarianAgent');
 const { WatchdogAgent } = require('../src/WatchdogAgent');
 const { TelegramBridge, parseAllowedChatIds, splitMessage } = require('../src/TelegramBridge');
+const { assertAllowedSubnet, normalizeSubnet, parsePorts } = require('../src/CameraScanner');
+const { extractSubnet } = require('../src/DirectorAgent');
 
 async function runTests() {
   const provider = new MockProvider();
@@ -56,6 +58,13 @@ async function runTests() {
   });
   assert.strictEqual(telegram.isChatAllowed(42), true, 'Telegram should allow configured chat IDs');
   assert.strictEqual(telegram.isChatAllowed(43), false, 'Telegram should reject unknown chat IDs');
+
+  assert.strictEqual(normalizeSubnet('192.168.1'), '192.168.1.0/24', 'Camera scanner should normalize three-octet subnets');
+  assert.strictEqual(assertAllowedSubnet('192.168.1', ['192.168.1.0/24']), '192.168.1.0/24', 'Camera scanner should allow configured private subnets');
+  assert.throws(() => assertAllowedSubnet('8.8.8.0/24', ['8.8.8.0/24']), /private subnets/, 'Camera scanner should reject public subnets');
+  assert.throws(() => assertAllowedSubnet('192.168.2.0/24', ['192.168.1.0/24']), /not in CAMERA_SCAN_ALLOWED_SUBNETS/, 'Camera scanner should reject unapproved private subnets');
+  assert.deepStrictEqual(parsePorts('80, 554, bad, 70000'), [80, 554], 'Camera scanner should parse valid ports only');
+  assert.strictEqual(extractSubnet('check cameras on 192.168.1.0/24'), '192.168.1.0/24', 'Director should extract /24 camera subnet');
 
   console.log('All tests passed.');
 }
