@@ -2,6 +2,7 @@ require('dotenv').config();
 const net = require('net');
 
 const DEFAULT_EXPECTED_CLIENTS = 'main-laptop,Kali-XPS-Security';
+const DEFAULT_REQUIRED_CLIENTS = 'main-laptop';
 
 function env(name, fallback = '') {
   return process.env[name] || fallback;
@@ -82,6 +83,7 @@ function print(name, ok, detail, critical = false) {
 async function checkPi(results) {
   const piHost = stripSlash(env('PI_HOST', 'http://pi5.local:5000'));
   const expectedClients = namesFromEnv(env('FLEET_EXPECTED', DEFAULT_EXPECTED_CLIENTS));
+  const requiredClients = namesFromEnv(env('FLEET_REQUIRED', DEFAULT_REQUIRED_CLIENTS));
 
   try {
     const health = await httpJson(`${piHost}/health`);
@@ -101,16 +103,25 @@ async function checkPi(results) {
   try {
     const bus = await httpJson(`${piHost}/bus/clients`);
     const clients = bus.data?.clients || [];
-    const missing = expectedClients.filter((name) => !clients.includes(name));
-    const detail = bus.ok
+    const missingRequired = requiredClients.filter((name) => !clients.includes(name));
+    const optionalClients = expectedClients.filter((name) => !requiredClients.includes(name));
+    const missingOptional = optionalClients.filter((name) => !clients.includes(name));
+    const requiredDetail = bus.ok
       ? [
         clients.length ? clients.join(', ') : 'none',
-        missing.length ? `missing expected: ${missing.join(', ')}` : 'expected clients connected'
+        missingRequired.length ? `missing required: ${missingRequired.join(', ')}` : 'required clients connected'
       ].join('; ')
       : `${piHost}/bus/clients HTTP ${bus.status}`;
-    results.push(print('Pi active bus clients', bus.ok && missing.length === 0, detail, true));
+    results.push(print('Pi required bus clients', bus.ok && missingRequired.length === 0, requiredDetail, true));
+
+    if (optionalClients.length) {
+      const optionalDetail = missingOptional.length
+        ? `missing optional: ${missingOptional.join(', ')}`
+        : `optional connected: ${optionalClients.join(', ')}`;
+      results.push(print('Pi optional bus clients', missingOptional.length === 0, optionalDetail, false));
+    }
   } catch (error) {
-    results.push(print('Pi active bus clients', false, 'pi-controller needs pull/restart for /bus/clients', true));
+    results.push(print('Pi required bus clients', false, 'pi-controller needs pull/restart for /bus/clients', true));
   }
 }
 

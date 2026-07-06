@@ -82,28 +82,56 @@ $Command *> '$logPath'
   Write-Output "Started $Name. Log: $logPath"
 }
 
+function Wait-ProcessPattern {
+  param(
+    [string]$Name,
+    [string]$Pattern,
+    [int]$Attempts = 12
+  )
+
+  for ($i = 1; $i -le $Attempts; $i++) {
+    $existing = Get-CimInstance Win32_Process |
+      Where-Object { $_.CommandLine -match $Pattern -and $_.ProcessId -ne $PID }
+
+    if ($existing) {
+      Write-Output "$Name process ready."
+      return
+    }
+
+    Start-Sleep -Seconds 1
+  }
+
+  throw "$Name process did not start."
+}
+
 Set-Location $AppDir
 
 Start-OllamaStable
 
+$telegramPattern = "src[\\/]telegram\.js|npm run telegram"
+$voicePattern = "src[\\/]local-voice\.js|npm run voice:listen"
+
 Start-IfMissing `
   -Name "Telegram bridge" `
-  -Pattern "src[\\/]telegram\.js|npm run telegram" `
+  -Pattern $telegramPattern `
   -Command "npm run telegram" `
   -LogName "telegram.log"
 
 Start-IfMissing `
   -Name "Laptop voice listener" `
-  -Pattern "src[\\/]local-voice\.js|npm run voice:listen" `
+  -Pattern $voicePattern `
   -Command "npm run voice:listen" `
   -LogName "voice-listener.log"
+
+Wait-ProcessPattern -Name "Telegram bridge" -Pattern $telegramPattern
+Wait-ProcessPattern -Name "Laptop voice listener" -Pattern $voicePattern
 
 Write-Output ""
 Write-Output "Voice stack started."
 Write-Output "Try saying: wake up status"
 Write-Output "Telegram bot and laptop mic can now route commands to the Empire mesh."
 
-Start-Sleep -Seconds 3
+Start-Sleep -Seconds 8
 Write-Output ""
 Write-Output "Verifying voice stack..."
 npm run voice:verify

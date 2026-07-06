@@ -62,6 +62,8 @@ class TelegramBridge {
     voiceEnabled = isEnabled(process.env.TELEGRAM_VOICE_ENABLED),
     ttsEnabled = isEnabled(process.env.TELEGRAM_REPLY_AUDIO),
     maxVoiceSeconds = Number(process.env.TELEGRAM_MAX_VOICE_SECONDS || 120),
+    startupRetries = Number(process.env.TELEGRAM_STARTUP_RETRIES || 6),
+    startupRetryDelayMs = Number(process.env.TELEGRAM_STARTUP_RETRY_DELAY_MS || 3000),
     wakeWords = parseWakeWords(process.env.TELEGRAM_WAKE_WORDS || process.env.VOICE_WAKE_WORDS),
     agentWakeWords = parseAgentWakeWords(process.env.AGENT_WAKE_WORDS),
     requireWakeWord = isEnabled(process.env.TELEGRAM_REQUIRE_WAKE_WORD),
@@ -83,6 +85,8 @@ class TelegramBridge {
     this.voiceEnabled = voiceEnabled;
     this.ttsEnabled = ttsEnabled;
     this.maxVoiceSeconds = maxVoiceSeconds;
+    this.startupRetries = startupRetries;
+    this.startupRetryDelayMs = startupRetryDelayMs;
     this.wakeWords = wakeWords;
     this.agentWakeWords = agentWakeWords;
     this.requireWakeWord = requireWakeWord;
@@ -98,8 +102,8 @@ class TelegramBridge {
 
   async start() {
     this.running = true;
-    await this.deleteWebhook();
-    const me = await this.call('getMe');
+    await this.withStartupRetry(() => this.deleteWebhook(), 'deleteWebhook');
+    const me = await this.withStartupRetry(() => this.call('getMe'), 'getMe');
     this.logger.log(`[TELEGRAM] Connected as @${me.username || me.first_name}`);
     this.logger.log('[TELEGRAM] Long polling started.');
     this.structuredLogger.action('telegram.start', {
@@ -126,6 +130,31 @@ class TelegramBridge {
 
   stop() {
     this.running = false;
+  }
+
+  async withStartupRetry(operation, label) {
+    let lastError = null;
+
+    for (let attempt = 1; attempt <= this.startupRetries; attempt += 1) {
+      try {
+        return await operation();
+      } catch (error) {
+        lastError = error;
+        this.logger.error(`[TELEGRAM] ${label} failed (attempt ${attempt}/${this.startupRetries}): ${error.message}`);
+        this.structuredLogger.warn('telegram.startup.retry', {
+          label,
+          attempt,
+          maxAttempts: this.startupRetries,
+          message: error.message
+        });
+
+        if (attempt < this.startupRetries) {
+          await new Promise((resolve) => setTimeout(resolve, this.startupRetryDelayMs));
+        }
+      }
+    }
+
+    throw lastError;
   }
 
   async deleteWebhook() {

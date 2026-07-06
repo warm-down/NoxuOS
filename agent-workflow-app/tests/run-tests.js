@@ -70,6 +70,16 @@ async function runTests() {
   assert.strictEqual(telegram.isChatAllowed(42), true, 'Telegram should allow configured chat IDs');
   assert.strictEqual(telegram.isChatAllowed(43), false, 'Telegram should reject unknown chat IDs');
   assert.ok(telegram.helpText(42).includes('Voice'), 'Telegram help should mention voice command options');
+  telegram.logger = { log() {}, error() {} };
+
+  let telegramStartupAttempts = 0;
+  const retryResult = await telegram.withStartupRetry(async () => {
+    telegramStartupAttempts += 1;
+    if (telegramStartupAttempts === 1) throw new Error('temporary network failure');
+    return 'ready';
+  }, 'testStartupRetry');
+  assert.strictEqual(retryResult, 'ready', 'Telegram startup should retry transient failures');
+  assert.strictEqual(telegramStartupAttempts, 2, 'Telegram startup retry should attempt again after a failure');
 
   const voiceMessages = [];
   const voiceTelegram = new TelegramBridge({

@@ -20,3 +20,6 @@ Start-Sleep -Seconds 2
 Write-Output ""
 Write-Output "Starting fresh voice stack..."
 & $StartScript
+if ($LASTEXITCODE -ne 0) {
+  exit $LASTEXITCODE
+}
