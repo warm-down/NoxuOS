@@ -49,6 +49,25 @@ async function httpJson(url, timeoutMs = 5000) {
   return { ok: response.ok, status: response.status, data };
 }
 
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function retry(operation, attempts = 4, delayMs = 2000) {
+  let lastError = null;
+
+  for (let attempt = 1; attempt <= attempts; attempt += 1) {
+    try {
+      return await operation(attempt);
+    } catch (error) {
+      lastError = error;
+      if (attempt < attempts) await sleep(delayMs);
+    }
+  }
+
+  throw lastError;
+}
+
 function tcpCheck(host, port, timeoutMs = 3500) {
   return new Promise((resolve) => {
     if (!host || !port) {
@@ -129,7 +148,7 @@ async function checkAiHost(results) {
   const ollamaUrl = stripSlash(env('AI_BOX_OLLAMA_BASE_URL', env('OLLAMA_BASE_URL', 'http://127.0.0.1:11434')));
 
   try {
-    const tags = await httpJson(`${ollamaUrl}/api/tags`);
+    const tags = await retry(() => httpJson(`${ollamaUrl}/api/tags`, 8000), 5, 3000);
     const models = tags.data?.models?.map((model) => model.name) || [];
     results.push(print('AI host Ollama', tags.ok && models.length > 0, `${models.length} model(s) at ${ollamaUrl}`, true));
   } catch (error) {
