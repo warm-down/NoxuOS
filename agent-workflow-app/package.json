@@ -13,6 +13,7 @@
     "voice:install": "powershell -ExecutionPolicy Bypass -File scripts/install-voice-stack-task.ps1",
     "voice:verify": "node scripts/verify-voice-stack.js",
     "capability:check": "node scripts/system-capability-check.js",
+    "architecture:check": "node scripts/architecture-check.js",
     "launch:check": "powershell -ExecutionPolicy Bypass -File scripts/launch-check.ps1",
     "bridge:check": "node scripts/bridge-check.js",
     "fleet:check": "node scripts/fleet-check.js",

@@ -76,6 +76,58 @@ npm start
 ### **Loading Ollama Models On Pi Or Kali**
 Use `tools/bootstrap-ollama-node.sh` on Linux nodes to install Ollama, start it locally, pull models, and configure `agent-workflow-app/.env`.
 
+### **Three-System Control Architecture**
+Use one coordinator and multiple workers. Ollama does not merge three computers into one giant model brain; start with one AI host and let other machines call it over a trusted LAN or Tailscale.
+
+```text
+Windows PC      = command center, browser dashboards, SSH, files, Git
+Raspberry Pi 5  = always-on hub, Home Assistant, MQTT, ESPHome, uptime services
+Linux AI box    = Ollama/Open WebUI/model runner, optional extra workers
+```
+
+Core layers:
+
+```text
+Network      Same LAN or Tailscale
+Access       SSH from Windows into each machine
+AI runtime   Ollama on the strongest machine
+Interface    Open WebUI in browser
+Automation   Home Assistant + MQTT on Raspberry Pi
+Storage      Syncthing/shared folder/NAS
+Control      Windows Terminal + dashboards
+```
+
+Bootstrap a dedicated Linux AI host:
+
+```bash
+cd ~/NoxuOS
+git pull
+EXPOSE_OLLAMA_LAN=true TRUSTED_SUBNET=192.168.1.0/24 ./tools/bootstrap-ai-host.sh
+```
+
+Optional Tailscale SSH on that AI host:
+
+```bash
+INSTALL_TAILSCALE=true ./tools/bootstrap-ai-host.sh
+```
+
+The script installs Ollama, pulls local open-source models, optionally starts Open WebUI, and prints the Windows `.env` values to use:
+
+```env
+AI_BOX_HOST=192.168.1.x
+AI_BOX_OLLAMA_BASE_URL=http://192.168.1.x:11434
+OPEN_WEBUI_URL=http://192.168.1.x:3000
+```
+
+From Windows:
+
+```powershell
+cd agent-workflow-app
+npm run architecture:check
+```
+
+`architecture:check` verifies the Pi controller, active mesh clients, AI-host Ollama, Open WebUI, Home Assistant, MQTT, ESPHome, SSH reachability, and Syncthing/storage endpoint if configured.
+
 Pi 5 lightweight model host:
 
 ```bash
