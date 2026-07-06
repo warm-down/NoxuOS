@@ -3,11 +3,12 @@ const { WorkflowEngine } = require('../src/WorkflowEngine');
 const { MockProvider } = require('../src/AIProvider');
 const { DirectorAgent } = require('../src/DirectorAgent');
 const { LibrarianAgent } = require('../src/LibrarianAgent');
-const { WatchdogAgent } = require('../src/WatchdogAgent');
+const { WatchdogAgent, summarizeListeningPorts } = require('../src/WatchdogAgent');
 const { TelegramBridge, parseAllowedChatIds, splitMessage } = require('../src/TelegramBridge');
 const { assertAllowedSubnet, normalizeSubnet, parsePorts } = require('../src/CameraScanner');
 const { extractSubnet } = require('../src/DirectorAgent');
 const { parseWakeCommand } = require('../src/WakeWords');
+const { redact } = require('../src/StructuredLogger');
 
 async function runTests() {
   const provider = new MockProvider();
@@ -42,6 +43,12 @@ async function runTests() {
   const watchdogReport = await watchdog.analyzeSecurity();
   assert.ok(watchdogReport.assessment, 'Watchdog should produce an assessment');
   assert.strictEqual(watchdogReport.network.skipped, true, 'Network scan should be opt-in for tests');
+  const portSummary = summarizeListeningPorts([
+    'TCP    0.0.0.0:445      0.0.0.0:0      LISTENING',
+    'TCP    [::]:3389        [::]:0         LISTENING'
+  ]);
+  assert.strictEqual(portSummary.length, 2, 'Watchdog should summarize unique listeners');
+  assert.strictEqual(portSummary[0].service, 'SMB file sharing', 'Watchdog should label common Windows services');
 
   const allowed = parseAllowedChatIds('123, 456');
   assert.ok(allowed.has('123'), 'Telegram allowlist should parse first chat ID');
@@ -97,6 +104,11 @@ async function runTests() {
 
   const quietWake = parseWakeCommand('random room chatter', { requireWakeWord: true });
   assert.strictEqual(quietWake.accepted, false, 'Required wake mode should ignore chatter');
+
+  const redacted = redact({ TELEGRAM_BOT_TOKEN: 'secret', nested: { apiKey: 'also-secret', value: 1 } });
+  assert.strictEqual(redacted.TELEGRAM_BOT_TOKEN, '[redacted]', 'Structured logger should redact token fields');
+  assert.strictEqual(redacted.nested.apiKey, '[redacted]', 'Structured logger should redact nested API key fields');
+  assert.strictEqual(redacted.nested.value, 1, 'Structured logger should preserve safe fields');
 
   console.log('All tests passed.');
 }

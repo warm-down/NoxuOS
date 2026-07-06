@@ -1,5 +1,6 @@
 const fs = require('fs').promises;
 const path = require('path');
+const { createLogger } = require('./StructuredLogger');
 
 const DEFAULT_IGNORES = new Set([
   '.git',
@@ -16,14 +17,17 @@ class LibrarianAgent {
   constructor(provider, { rootDir = process.env.LIBRARIAN_ROOT || process.cwd() } = {}) {
     this.provider = provider;
     this.rootDir = path.resolve(rootDir);
+    this.logger = createLogger('librarian');
   }
 
   async analyzeFile(filePath) {
+    this.logger.action('librarian.analyzeFile.start', { filePath });
     try {
       const resolved = this.resolveReadablePath(filePath);
       const stats = await fs.stat(resolved);
 
       if (!stats.isFile()) {
+        this.logger.warn('librarian.analyzeFile.not_file', { filePath: resolved });
         return `Not a file: ${resolved}`;
       }
 
@@ -36,13 +40,16 @@ class LibrarianAgent {
         maxTokens: 256
       });
 
-      return {
+      const result = {
         path: resolved,
         size: stats.size,
         modified: stats.mtime,
         analysis
       };
+      this.logger.action('librarian.analyzeFile.complete', { filePath: resolved, size: stats.size });
+      return result;
     } catch (error) {
+      this.logger.error('librarian.analyzeFile.error', error, { filePath });
       return `Error analyzing file: ${error.message}`;
     }
   }
@@ -53,10 +60,12 @@ class LibrarianAgent {
       return [];
     }
 
+    this.logger.action('librarian.searchFiles.start', { searchTerm: term, directory, limit });
     const startDir = this.resolveReadablePath(directory);
     const results = [];
     const matcher = this.createMatcher(term);
     await this.walkAndSearch(startDir, matcher, results, limit);
+    this.logger.action('librarian.searchFiles.complete', { searchTerm: term, directory: startDir, results: results.length });
     return results;
   }
 
@@ -112,17 +121,25 @@ class LibrarianAgent {
 
   async organizeDirectory(dirPath = this.rootDir) {
     const resolved = this.resolveReadablePath(dirPath);
+    this.logger.action('librarian.organizeDirectory.start', { dirPath: resolved });
     const entries = await fs.readdir(resolved, { withFileTypes: true });
     const sample = entries.slice(0, 80).map((entry) => ({
       name: entry.name,
       type: entry.isDirectory() ? 'directory' : 'file'
     }));
 
-    return this.provider.generate({
+    try {
+      const output = await this.provider.generate({
       system: 'You are the Librarian. Suggest a practical, low-risk file organization plan. Do not move files.',
       user: `Suggest organization for directory: ${resolved}\n\nEntries:\n${JSON.stringify(sample, null, 2)}`,
       maxTokens: 300
-    });
+      });
+      this.logger.action('librarian.organizeDirectory.complete', { dirPath: resolved, outputChars: output.length });
+      return output;
+    } catch (error) {
+      this.logger.error('librarian.organizeDirectory.error', error, { dirPath: resolved });
+      throw error;
+    }
   }
 
   resolveReadablePath(targetPath) {

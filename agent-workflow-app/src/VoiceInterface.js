@@ -4,6 +4,7 @@ const os = require('os');
 const path = require('path');
 const readline = require('readline');
 const { DEFAULT_WAKE_WORDS, parseAgentWakeWords, parseWakeCommand, parseWakeWords } = require('./WakeWords');
+const { createLogger } = require('./StructuredLogger');
 
 function isEnabled(value) {
   return String(value || '').toLowerCase() === 'true';
@@ -21,6 +22,7 @@ class VoiceInterface {
     this.chain = Promise.resolve();
     this.lastText = '';
     this.lastTextAt = 0;
+    this.logger = createLogger('local-voice');
   }
 
   start() {
@@ -30,6 +32,12 @@ class VoiceInterface {
     }
 
     this.started = true;
+    this.logger.action('voice.start', {
+      mode: this.mode,
+      requireWakeWord: this.requireWakeWord,
+      wakeWords: this.wakeWords,
+      agentWakeWords: this.agentWakeWords
+    });
     console.log('\n[VOICE] Wake words active:');
     console.log(`[VOICE] ${this.wakeWords.join(', ')}`);
 
@@ -112,8 +120,10 @@ while ($true) { Start-Sleep -Milliseconds 250 }
 
         try {
           const payload = JSON.parse(line.slice('NOXU_SPEECH '.length));
+          this.logger.action('voice.recognized', { text: payload.text, confidence: payload.confidence });
           this.chain = this.chain.then(() => this.handleRecognizedText(payload.text, payload.confidence));
         } catch (error) {
+          this.logger.error('voice.recognized.parse_error', error, { line });
           console.log(`[VOICE] Could not parse speech event: ${error.message}`);
         }
       }
@@ -122,10 +132,14 @@ while ($true) { Start-Sleep -Milliseconds 250 }
     child.stderr.setEncoding('utf8');
     child.stderr.on('data', (data) => {
       const output = data.trim();
-      if (output) console.log(`[VOICE] ${output}`);
+      if (output) {
+        this.logger.warn('voice.stderr', { output });
+        console.log(`[VOICE] ${output}`);
+      }
     });
 
     child.on('exit', (code) => {
+      this.logger.warn('voice.listener.exit', { code });
       console.log(`[VOICE] Windows speech listener stopped (${code}).`);
       fs.rm(scriptPath, { force: true }, () => {});
     });
@@ -136,6 +150,7 @@ while ($true) { Start-Sleep -Milliseconds 250 }
     if (!text) return;
 
     if (confidence < this.minConfidence) {
+      this.logger.info('voice.ignored.low_confidence', { text, confidence });
       console.log(`[VOICE] Ignored low-confidence speech (${confidence.toFixed(2)}): ${text}`);
       return;
     }
@@ -152,6 +167,7 @@ while ($true) { Start-Sleep -Milliseconds 250 }
     });
 
     if (!parsed.accepted) {
+      this.logger.info('voice.ignored.no_wake_word', { text });
       console.log(`[VOICE] Heard without wake word: ${text}`);
       return;
     }
@@ -161,12 +177,20 @@ while ($true) { Start-Sleep -Milliseconds 250 }
       : parsed.command;
 
     console.log(`[VOICE] Wake: ${parsed.wakeWord || 'direct'} | Command: ${command}`);
-    const response = await this.director.handleCommand(command);
-    this.speak(response);
+    this.logger.action('voice.command.dispatch', { wakeWord: parsed.wakeWord, agent: parsed.agent, command });
+    try {
+      const response = await this.director.handleCommand(command);
+      this.logger.action('voice.command.complete', { command, outputChars: String(response || '').length });
+      this.speak(response);
+    } catch (error) {
+      this.logger.error('voice.command.error', error, { command });
+      this.speak(`Voice command failed: ${error.message}`);
+    }
   }
 
   speak(text) {
     const output = String(text || '');
+    this.logger.action('voice.speak', { outputChars: output.length, ttsEnabled: isEnabled(process.env.ENABLE_TTS) });
     console.log(`\n[VOICE] ${output.slice(0, 500)}${output.length > 500 ? '...' : ''}\n`);
 
     if (!isEnabled(process.env.ENABLE_TTS)) {

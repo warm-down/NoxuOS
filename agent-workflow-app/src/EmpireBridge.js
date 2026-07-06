@@ -2,6 +2,7 @@ const os = require('os');
 const WebSocket = require('ws');
 const { createDefaultProvider } = require('./AIProvider');
 const { CameraScanner } = require('./CameraScanner');
+const { createLogger } = require('./StructuredLogger');
 const skillRegistry = require('../config/skills.json');
 
 class EmpireBridge {
@@ -21,6 +22,7 @@ class EmpireBridge {
     this.connected = false;
     this.standalone = false;
     this.pendingTasks = new Map();
+    this.logger = createLogger('empire-bridge');
   }
 
   async connect() {
@@ -29,9 +31,11 @@ class EmpireBridge {
     try {
       await this.registerWithController(registration);
       await this.connectAgentBus();
+      this.logger.action('empire.connect.mesh', { registration, piHost: this.piHost, wsUrl: this.wsUrl });
       return { mode: 'mesh', registration };
     } catch (error) {
       this.standalone = true;
+      this.logger.error('empire.connect.standalone', error, { piHost: this.piHost, wsUrl: this.wsUrl });
       console.log(`[EMPIRE] Controller unavailable, running standalone: ${error.message}`);
       return { mode: 'standalone', registration };
     }
@@ -59,6 +63,7 @@ class EmpireBridge {
     if (!response.ok) {
       throw new Error(`controller registration failed (${response.status})`);
     }
+    this.logger.action('empire.controller.registered', { piHost: this.piHost, name: registration.name, role: registration.role });
   }
 
   connectAgentBus() {
@@ -80,6 +85,7 @@ class EmpireBridge {
           skills: skillRegistry.skills.map((skill) => skill.name)
         });
         console.log(`[EMPIRE] Connected as ${this.deviceName} (${this.role})`);
+        this.logger.action('empire.bus.connected', { wsUrl: this.wsUrl, deviceName: this.deviceName, role: this.role });
         resolve();
       });
 
@@ -87,8 +93,15 @@ class EmpireBridge {
         let message = {};
         try {
           message = JSON.parse(data.toString());
+          this.logger.action('empire.bus.message', {
+            type: message.type,
+            command: message.command,
+            target: message.target,
+            taskId: message.id || message.task_id
+          });
           await this.handleCommand(message);
         } catch (error) {
+          this.logger.error('empire.bus.message_error', error, { message });
           this.send({
             type: 'error',
             from: this.deviceName,
@@ -101,9 +114,13 @@ class EmpireBridge {
       ws.on('close', () => {
         this.connected = false;
         this.ws = null;
+        this.logger.warn('empire.bus.closed', { wsUrl: this.wsUrl });
       });
 
-      ws.on('error', reject);
+      ws.on('error', (error) => {
+        this.logger.error('empire.bus.error', error, { wsUrl: this.wsUrl });
+        reject(error);
+      });
     });
   }
 
@@ -168,6 +185,7 @@ class EmpireBridge {
         await this.migrateAgent(message.agent, message.toDevice);
         break;
       default:
+        this.logger.warn('empire.command.unknown', { command: message.command, message });
         this.send({ type: 'unknown_command', from: this.deviceName, command: message.command });
     }
   }
@@ -178,15 +196,24 @@ class EmpireBridge {
       throw new Error('run_agent task requires a prompt.');
     }
 
-    return this.provider.generate({
+    this.logger.action('empire.task.run_agent.start', { promptChars: prompt.length, task });
+    try {
+      const output = await this.provider.generate({
       system: task.system,
       user: prompt,
       temperature: task.temperature,
       maxTokens: task.maxTokens
-    });
+      });
+      this.logger.action('empire.task.run_agent.complete', { outputChars: output.length });
+      return output;
+    } catch (error) {
+      this.logger.error('empire.task.run_agent.error', error, { task });
+      throw error;
+    }
   }
 
   reportResult(taskId, result) {
+    this.logger.action('empire.task.result', { taskId, resultChars: String(result || '').length });
     this.send({ type: 'task_complete', from: this.deviceName, task_id: taskId, result });
   }
 
@@ -210,8 +237,11 @@ class EmpireBridge {
     }
 
     const scanner = new CameraScanner();
+    this.logger.action('empire.cameraSweep.start', { task });
     const report = await scanner.scan({ subnet: task.subnet });
-    return scanner.format(report);
+    const output = scanner.format(report);
+    this.logger.action('empire.cameraSweep.complete', { subnet: report.subnet, candidates: report.candidates?.length || 0 });
+    return output;
   }
 
   requestTask({ target, command, task = {}, timeoutMs = 60000 }) {
@@ -227,10 +257,12 @@ class EmpireBridge {
     return new Promise((resolve, reject) => {
       const timer = setTimeout(() => {
         this.pendingTasks.delete(id);
+        this.logger.error('empire.task.timeout', new Error(`Remote task timed out: ${command} -> ${target}`), { id, target, command });
         reject(new Error(`Remote task timed out: ${command} -> ${target}`));
       }, timeoutMs);
 
       this.pendingTasks.set(id, { resolve, reject, timer });
+      this.logger.action('empire.task.request', { id, target, command, task, timeoutMs });
       this.send({ id, target, command, task });
     });
   }
@@ -244,6 +276,11 @@ class EmpireBridge {
 
     if (error) pending.reject(error);
     else pending.resolve(result);
+    this.logger.action(error ? 'empire.task.rejected' : 'empire.task.resolved', {
+      taskId,
+      error: error?.message,
+      resultChars: String(result || '').length
+    });
   }
 
   async migrateAgent(agentName, toDevice) {

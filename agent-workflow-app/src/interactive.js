@@ -5,12 +5,15 @@ const EmpireBridge = require('./EmpireBridge');
 const { DirectorAgent } = require('./DirectorAgent');
 const { LibrarianAgent } = require('./LibrarianAgent');
 const VoiceInterface = require('./VoiceInterface');
+const { createLogger } = require('./StructuredLogger');
+
+const logger = createLogger('interactive');
 
 async function main() {
-  console.log('╔════════════════════════════════════════╗');
-  console.log('║     AI EMPIRE - COMMAND CENTER        ║');
-  console.log('║     Type "help" for commands          ║');
-  console.log('╚════════════════════════════════════════╝\n');
+  console.log('+----------------------------------------+');
+  console.log('|     AI EMPIRE - COMMAND CENTER        |');
+  console.log('|     Type "help" for commands          |');
+  console.log('+----------------------------------------+\n');
 
   const provider = createDefaultProvider();
   const empire = new EmpireBridge({
@@ -21,7 +24,8 @@ async function main() {
     wsUrl: process.env.EMPIRE_WS || 'ws://localhost:8765'
   });
 
-  await empire.connect();
+  const connection = await empire.connect();
+  logger.action('interactive.ready', { connection });
 
   const director = new DirectorAgent(provider, empire);
   const librarian = new LibrarianAgent(provider);
@@ -56,6 +60,7 @@ Commands:
     const cmd = raw.toLowerCase();
 
     if (!raw) return;
+    logger.action('interactive.command.received', { input: raw });
 
     if (cmd === 'help') {
       printHelp();
@@ -63,6 +68,7 @@ Commands:
     }
 
     if (cmd === 'exit' || cmd === 'quit') {
+      logger.action('interactive.shutdown');
       console.log('Shutting down...');
       rl.close();
       empire.close();
@@ -106,7 +112,10 @@ Commands:
   rl.on('line', (line) => {
     chain = chain
       .then(() => handleInput(line))
-      .catch((error) => console.error(`\nAgent error: ${error.message}\n`))
+      .catch((error) => {
+        logger.error('interactive.command.error', error, { line });
+        console.error(`\nAgent error: ${error.message}\n`);
+      })
       .finally(() => {
         if (!rl.closed && process.stdin.isTTY) rl.prompt();
       });
@@ -114,6 +123,7 @@ Commands:
 }
 
 main().catch((error) => {
+  logger.error('interactive.failed', error);
   console.error('Command center failed:', error);
   process.exit(1);
 });

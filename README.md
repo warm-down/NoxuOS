@@ -226,6 +226,44 @@ Kali:    npm run worker
 Pi 5:    empire-pi.service
 ```
 
+Start the whole hands-free Windows voice stack:
+
+```powershell
+cd agent-workflow-app
+npm run voice:stack
+```
+
+`voice:stack` starts Ollama if needed, starts the Telegram bridge, starts the laptop microphone listener, then runs service verification.
+
+Verify the stack without starting new processes:
+
+```powershell
+npm run voice:verify
+```
+
+Install it to start automatically when Windows logs in:
+
+```powershell
+npm run voice:install
+```
+
+Run the full capability check:
+
+```powershell
+npm run capability:check
+```
+
+The capability check covers CPU, RAM, GPU/VRAM, disk, OS, Python, Whisper, ffmpeg, Ollama, models, Home Assistant, MQTT, ESPHome, microphone, speaker, camera devices, Telegram, and mesh fleet status.
+
+Structured agent logs are written as JSONL:
+
+```text
+agent-workflow-app/logs/agents.jsonl
+agent-workflow-app/logs/errors.jsonl
+```
+
+These logs redact obvious token, key, secret, and password fields. Use them before moving on to camera work: the voice stack, agents, launcher, checks, reboot recovery, and logs should all pass first.
+
 Install Kali as an always-on systemd worker:
 
 ```bash

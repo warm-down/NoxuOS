@@ -2,6 +2,7 @@ const { WriterAgent, ReviewerAgent } = require('./Agent');
 const { LibrarianAgent } = require('./LibrarianAgent');
 const { WatchdogAgent } = require('./WatchdogAgent');
 const { WorkflowEngine } = require('./WorkflowEngine');
+const { createLogger } = require('./StructuredLogger');
 
 function normalizeList(value, fallback) {
   const values = Array.isArray(value) ? value : [value || fallback];
@@ -49,6 +50,7 @@ class DirectorAgent {
     };
     this.memory = [];
     this.maxMemory = 10;
+    this.logger = createLogger('director');
   }
 
   async handleCommand(userInput) {
@@ -57,17 +59,32 @@ class DirectorAgent {
       return 'Give me a task and I will route it.';
     }
 
-    this.memory.push({ role: 'user', content: input });
-    if (this.memory.length > this.maxMemory) this.memory.shift();
+    this.logger.action('director.command.received', { input });
 
-    if (input.toLowerCase() === 'status') {
-      return this.getLocalStatus();
+    try {
+      this.memory.push({ role: 'user', content: input });
+      if (this.memory.length > this.maxMemory) this.memory.shift();
+
+      if (input.toLowerCase() === 'status') {
+        const status = await this.getLocalStatus();
+        this.logger.action('director.command.complete', { input, agent: 'director', outputChars: status.length });
+        return status;
+      }
+
+      const decision = await this.route(input);
+      this.logger.action('director.route.decision', { input, decision });
+      const response = await this.executeDecision(decision, input);
+      this.memory.push({ role: 'assistant', content: response });
+      this.logger.action('director.command.complete', {
+        input,
+        agent: decision.agent,
+        outputChars: response.length
+      });
+      return response;
+    } catch (error) {
+      this.logger.error('director.command.error', error, { input });
+      throw error;
     }
-
-    const decision = await this.route(input);
-    const response = await this.executeDecision(decision, input);
-    this.memory.push({ role: 'assistant', content: response });
-    return response;
   }
 
   async route(input) {
@@ -95,7 +112,7 @@ Reply only as JSON: {"agent":"name","task":"description","response":"brief user-
       const parsed = parseJsonObject(routing);
       if (parsed?.agent) return parsed;
     } catch (error) {
-      // Fall through to deterministic routing.
+      this.logger.warn('director.route.llm_failed', { input, error: error.message });
     }
 
     return this.routeWithHeuristics(input);
@@ -228,8 +245,10 @@ Reply only as JSON: {"agent":"name","task":"description","response":"brief user-
   async runRemoteCameraSweep(task) {
     const target = process.env.SECURITY_NODE_NAME || 'Kali-XPS-Security';
     const subnet = extractSubnet(task);
+    this.logger.action('director.cameraSweep.requested', { target, subnet, task });
 
     if (!this.empire?.connected || typeof this.empire.requestTask !== 'function') {
+      this.logger.warn('director.cameraSweep.unavailable', { target, subnet });
       return [
         'Camera sweep unavailable: mesh is not connected.',
         `Target security node: ${target}`,
@@ -246,8 +265,10 @@ Reply only as JSON: {"agent":"name","task":"description","response":"brief user-
         timeoutMs: Number(process.env.CAMERA_SWEEP_TIMEOUT_MS || 90000)
       });
 
+      this.logger.action('director.cameraSweep.complete', { target, subnet, outputChars: String(result).length });
       return [`Kali camera sweep via ${target}:`, result].join('\n\n');
     } catch (error) {
+      this.logger.error('director.cameraSweep.error', error, { target, subnet });
       return [
         `Camera sweep failed on ${target}: ${error.message}`,
         `Requested subnet: ${subnet}`,

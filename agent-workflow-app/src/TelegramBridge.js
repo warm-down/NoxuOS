@@ -4,6 +4,7 @@ const path = require('path');
 const { execFile } = require('child_process');
 const { promisify } = require('util');
 const { parseAgentWakeWords, parseWakeCommand, parseWakeWords } = require('./WakeWords');
+const { createLogger } = require('./StructuredLogger');
 
 const DEFAULT_API_BASE_URL = 'https://api.telegram.org';
 const DEFAULT_MAX_MESSAGE_LENGTH = 3900;
@@ -86,6 +87,7 @@ class TelegramBridge {
     this.agentWakeWords = agentWakeWords;
     this.requireWakeWord = requireWakeWord;
     this.logger = logger;
+    this.structuredLogger = createLogger('telegram');
     this.offset = 0;
     this.running = false;
   }
@@ -100,6 +102,12 @@ class TelegramBridge {
     const me = await this.call('getMe');
     this.logger.log(`[TELEGRAM] Connected as @${me.username || me.first_name}`);
     this.logger.log('[TELEGRAM] Long polling started.');
+    this.structuredLogger.action('telegram.start', {
+      username: me.username || me.first_name,
+      voiceEnabled: this.voiceEnabled,
+      ttsEnabled: this.ttsEnabled,
+      requireWakeWord: this.requireWakeWord
+    });
 
     while (this.running) {
       try {
@@ -110,6 +118,7 @@ class TelegramBridge {
         }
       } catch (error) {
         this.logger.error(`[TELEGRAM] Poll error: ${error.message}`);
+        this.structuredLogger.error('telegram.poll.error', error);
         await new Promise((resolve) => setTimeout(resolve, 3000));
       }
     }
@@ -139,6 +148,7 @@ class TelegramBridge {
 
     if (!this.isChatAllowed(chatId)) {
       this.logger.log(`[TELEGRAM] Rejected chat ${chatId}`);
+      this.structuredLogger.warn('telegram.chat.rejected', { chatId });
       await this.sendMessage(
         chatId,
         [
@@ -151,6 +161,7 @@ class TelegramBridge {
     }
 
     if (message.voice) {
+      this.structuredLogger.action('telegram.voice.received', { chatId, duration: message.voice.duration });
       await this.handleVoiceMessage(message);
       return;
     }
@@ -178,12 +189,20 @@ class TelegramBridge {
     const parsed = this.parseCommand(commandText);
 
     if (!parsed.accepted) {
+      this.structuredLogger.info('telegram.message.ignored_no_wake', { chatId, text: commandText });
       await this.sendMessage(chatId, this.wakePrompt());
       return;
     }
 
+    this.structuredLogger.action('telegram.command.dispatch', {
+      chatId,
+      wakeWord: parsed.wakeWord,
+      agent: parsed.agent,
+      command: this.toDirectorCommand(parsed)
+    });
     await this.call('sendChatAction', { chat_id: chatId, action: 'typing' });
     const response = await this.director.handleCommand(this.toDirectorCommand(parsed));
+    this.structuredLogger.action('telegram.command.complete', { chatId, outputChars: String(response || '').length });
     await this.sendMessage(chatId, response);
     await this.maybeSendAudioReply(chatId, response);
   }
@@ -193,6 +212,7 @@ class TelegramBridge {
     const duration = Number(message.voice.duration || 0);
 
     if (!this.voiceEnabled) {
+      this.structuredLogger.warn('telegram.voice.disabled', { chatId });
       await this.sendMessage(
         chatId,
         [
@@ -205,6 +225,7 @@ class TelegramBridge {
     }
 
     if (duration > this.maxVoiceSeconds) {
+      this.structuredLogger.warn('telegram.voice.too_long', { chatId, duration, maxVoiceSeconds: this.maxVoiceSeconds });
       await this.sendMessage(chatId, `Voice note is too long (${duration}s). Limit: ${this.maxVoiceSeconds}s.`);
       return;
     }
@@ -223,18 +244,28 @@ class TelegramBridge {
       }
 
       await this.sendMessage(chatId, `Heard: ${transcript}`);
+      this.structuredLogger.action('telegram.voice.transcribed', { chatId, transcriptChars: transcript.length });
 
       const parsed = this.parseCommand(transcript);
       if (!parsed.accepted) {
+        this.structuredLogger.info('telegram.voice.ignored_no_wake', { chatId, transcript });
         await this.sendMessage(chatId, this.wakePrompt());
         return;
       }
 
+      this.structuredLogger.action('telegram.voice.dispatch', {
+        chatId,
+        wakeWord: parsed.wakeWord,
+        agent: parsed.agent,
+        command: this.toDirectorCommand(parsed)
+      });
       const response = await this.director.handleCommand(this.toDirectorCommand(parsed));
+      this.structuredLogger.action('telegram.voice.complete', { chatId, outputChars: String(response || '').length });
       await this.sendMessage(chatId, response);
       await this.maybeSendAudioReply(chatId, response);
     } catch (error) {
       this.logger.error(`[TELEGRAM] Voice failed: ${error.message}`);
+      this.structuredLogger.error('telegram.voice.error', error, { chatId });
       await this.sendMessage(
         chatId,
         [
@@ -364,8 +395,10 @@ class TelegramBridge {
     try {
       await this.createTtsAudio(text, audioPath);
       await this.sendAudioFile(chatId, audioPath, 'NoxuOS response');
+      this.structuredLogger.action('telegram.tts.complete', { chatId, outputChars: String(text || '').length });
     } catch (error) {
       this.logger.error(`[TELEGRAM] TTS failed: ${error.message}`);
+      this.structuredLogger.error('telegram.tts.error', error, { chatId });
     } finally {
       await fs.rm(tempDir, { recursive: true, force: true });
     }

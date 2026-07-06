@@ -3,6 +3,9 @@ const { createDefaultProvider } = require('./AIProvider');
 const EmpireBridge = require('./EmpireBridge');
 const { DirectorAgent } = require('./DirectorAgent');
 const VoiceInterface = require('./VoiceInterface');
+const { createLogger } = require('./StructuredLogger');
+
+const logger = createLogger('local-voice-entrypoint');
 
 async function main() {
   const provider = createDefaultProvider();
@@ -13,11 +16,13 @@ async function main() {
   });
 
   await empire.connect();
+  logger.action('localVoice.ready');
 
   const director = new DirectorAgent(provider, empire);
   const voice = new VoiceInterface(director);
 
   const shutdown = () => {
+    logger.action('localVoice.shutdown');
     console.log('\n[VOICE] Shutting down...');
     empire.close();
     setTimeout(() => process.exit(0), 100);
@@ -30,6 +35,7 @@ async function main() {
 }
 
 main().catch((error) => {
+  logger.error('localVoice.failed', error);
   console.error(`[VOICE] Failed: ${error.message}`);
   process.exit(1);
 });
