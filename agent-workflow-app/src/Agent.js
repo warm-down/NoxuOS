@@ -10,6 +10,19 @@ class Agent {
   }
 }
 
+function normalizeList(value, fallback) {
+  const values = Array.isArray(value) ? value : [value || fallback];
+  return values.map((item) => {
+    if (typeof item === 'string') {
+      return item;
+    }
+    if (item && typeof item === 'object') {
+      return JSON.stringify(item);
+    }
+    return String(item);
+  });
+}
+
 class WriterAgent extends Agent {
   constructor(provider, name = 'Writer', voice = 'clear and professional') {
     super(name, 'writer', provider);
@@ -32,9 +45,10 @@ class WriterAgent extends Agent {
       throw new Error('WriterAgent requires a provider to refine content.');
     }
 
-    const improvements = Array.isArray(review.improvements)
-      ? review.improvements
-      : [String(review.improvements || 'Improve clarity, structure, and factual grounding.')];
+    const improvements = normalizeList(
+      review.improvements,
+      'Improve clarity, structure, and factual grounding.'
+    );
 
     const system = `You are ${this.name}, a professional writer agent. Improve the draft using reviewer feedback.`;
     const user = `Here is the current draft:\n${draft}\n\nReviewer feedback:\n${improvements.join('\n')}\n\nPlease provide a refined draft that incorporates the review suggestions.`;
@@ -60,12 +74,8 @@ class ReviewerAgent extends Agent {
     try {
       const parsed = JSON.parse(output);
       return {
-        observations: Array.isArray(parsed.observations)
-          ? parsed.observations
-          : [String(parsed.observations || 'Draft reviewed.')],
-        improvements: Array.isArray(parsed.improvements)
-          ? parsed.improvements
-          : [String(parsed.improvements || 'Improve clarity and evidence.')],
+        observations: normalizeList(parsed.observations, 'Draft reviewed.'),
+        improvements: normalizeList(parsed.improvements, 'Improve clarity and evidence.'),
         summary: String(parsed.summary || `Reviewed by ${this.name}.`)
       };
     } catch (error) {
