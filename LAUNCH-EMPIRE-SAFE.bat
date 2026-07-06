@@ -35,9 +35,9 @@ popd
 echo [3/4] Pi 5 controller status...
 powershell -NoProfile -ExecutionPolicy Bypass -Command "try { Invoke-RestMethod -Uri 'http://pi5.local:5000/devices' -TimeoutSec 3 | ConvertTo-Json -Depth 5 } catch { Write-Host 'Pi 5 controller not reachable yet. Standalone mode is OK for this laptop.' }"
 
-echo [4/4] Running local agent workflow...
+echo [4/4] Command center ready.
 pushd "%~dp0agent-workflow-app"
-call npm start
+echo Run "npm start" here to enter the interactive command center.
 popd
 
 echo.

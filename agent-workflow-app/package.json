@@ -1,15 +1,16 @@
 {
   "name": "agent-workflow-app",
-  "version": "0.1.0",
-  "description": "Multi-agent workflow sample app demonstrating a Writer and Reviewer collaboration using an extensible agent framework.",
+  "version": "0.2.0",
+  "description": "AI Empire - Multi-Agent Operating System",
   "main": "src/index.js",
   "type": "commonjs",
   "scripts": {
     "start": "node src/index.js",
     "test": "node tests/run-tests.js",
+    "voice": "set ENABLE_VOICE=true&& node src/interactive.js",
     "launch:check": "powershell -ExecutionPolicy Bypass -File scripts/launch-check.ps1",
     "bridge:check": "node scripts/bridge-check.js",
-    "interactive": "node src/index-interactive.js"
+    "interactive": "node src/interactive.js"
   },
   "author": "NoxuOS",
   "license": "Apache-2.0",

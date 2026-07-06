@@ -26,6 +26,10 @@ This sample app demonstrates a simple multi-agent workflow using a Writer agent 
    ```powershell
    npm start
    ```
+   Or run the interactive command center:
+   ```powershell
+   npm run interactive
+   ```
 5. Run tests:
    ```powershell
    npm test

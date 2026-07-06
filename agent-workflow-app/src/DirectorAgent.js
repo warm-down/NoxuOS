@@ -1,4 +1,6 @@
 const { WriterAgent, ReviewerAgent } = require('./Agent');
+const { LibrarianAgent } = require('./LibrarianAgent');
+const { WorkflowEngine } = require('./WorkflowEngine');
 
 function normalizeList(value, fallback) {
   const values = Array.isArray(value) ? value : [value || fallback];
@@ -29,9 +31,11 @@ class DirectorAgent {
     this.empire = empireBridge;
     this.agents = {
       writer: new WriterAgent(provider),
-      reviewer: new ReviewerAgent(provider)
+      reviewer: new ReviewerAgent(provider),
+      librarian: new LibrarianAgent(provider)
     };
     this.memory = [];
+    this.maxMemory = 10;
   }
 
   async handleCommand(userInput) {
@@ -41,6 +45,7 @@ class DirectorAgent {
     }
 
     this.memory.push({ role: 'user', content: input });
+    if (this.memory.length > this.maxMemory) this.memory.shift();
 
     if (input.toLowerCase() === 'status') {
       return this.getLocalStatus();
@@ -59,9 +64,10 @@ Choose the best agent for the user's request.
 Available agents:
 - writer: drafting, writing, editing, announcements, summaries
 - reviewer: critique, review, improve, evaluate text
-- librarian: file organization/search (not implemented)
+- librarian: file organization/search/analyze files
 - watchdog: monitoring/security status (not implemented)
 - maestro: music/audio/creative production (not implemented)
+- procurer: hardware/spec planning; physical actions require approval
 
 Reply only as JSON: {"agent":"name","task":"description","response":"brief user-facing note"}`;
 
@@ -94,7 +100,15 @@ Reply only as JSON: {"agent":"name","task":"description","response":"brief user-
     }
 
     if (/\b(file|folder|organize|find|search)\b/.test(lower)) {
-      return { agent: 'librarian', task: input, response: 'Librarian is queued but not implemented yet.' };
+      return { agent: 'librarian', task: input, response: 'Routing to Librarian.' };
+    }
+
+    if (/\b(turn on|turn off|activate|open|close|gpio|relay|motor|hardware)\b/.test(lower)) {
+      return {
+        agent: 'procurer',
+        task: input,
+        response: `[HARDWARE APPROVAL REQUIRED] ${input}\nPhysical device execution is not automatic. Use the supervised hardware controller after explicit approval.`
+      };
     }
 
     if (/\b(security|scan|monitor|alert|watch)\b/.test(lower)) {
@@ -126,11 +140,35 @@ Reply only as JSON: {"agent":"name","task":"description","response":"brief user-
       ].join('\n');
     }
 
-    if (['librarian', 'watchdog', 'maestro'].includes(agent)) {
+    if (agent === 'librarian') {
+      if (/\b(search|find)\b/i.test(task)) {
+        const term = task.replace(/\b(search|find|files?|for)\b/gi, '').trim();
+        const results = await this.agents.librarian.searchFiles(term);
+        return `Librarian found ${results.length} result(s):\n${JSON.stringify(results, null, 2)}`;
+      }
+      return this.agents.librarian.organizeDirectory();
+    }
+
+    if (agent === 'procurer') {
+      return decision.response || '[HARDWARE APPROVAL REQUIRED] Physical actions require explicit approval.';
+    }
+
+    if (['watchdog', 'maestro'].includes(agent)) {
       return `${decision.response || `${agent} is not implemented yet.`}\nQueued task: ${task}`;
     }
 
     return decision.response || 'I have noted your request.';
+  }
+
+  async executeWorkflow(task) {
+    const engine = new WorkflowEngine({ provider: this.provider });
+    const result = await engine.runWorkflow(task);
+    return [
+      'Workflow complete:',
+      `Draft: ${result.draft.slice(0, 200)}...`,
+      `Review: ${result.review.summary}`,
+      `Final: ${result.finalDraft.slice(0, 200)}...`
+    ].join('\n\n');
   }
 
   async getLocalStatus() {
