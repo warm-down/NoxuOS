@@ -353,6 +353,14 @@ npm run voice:stack
 
 `voice:stack` starts Ollama if needed, starts the Telegram bridge, starts the laptop microphone listener, then runs service verification.
 
+Once Pi 5, Pi 400/Home Assistant, Kali, voice, and mesh checks are all green, use the full launcher from the repository root:
+
+```powershell
+.\LAUNCH-EMPIRE-FULL.bat
+```
+
+This is the future one-button launcher. It still runs supervised: physical hardware actions require approval.
+
 After restarting the Pi controller, force the Windows bridges to reconnect:
 
 ```powershell
