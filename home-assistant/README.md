@@ -54,6 +54,27 @@ Recommended base:
 
 The SSH add-on is for Home Assistant OS maintenance only. It is not the same as normal Raspberry Pi OS SSH access.
 
+## External Pi 5 Services
+
+If Home Assistant add-ons are not installed yet, the Pi 5 can host the local automation services while the Pi 400 remains the Home Assistant controller:
+
+```bash
+cd ~/NoxuOS
+git pull
+./tools/install-pi5-automation-services.sh
+```
+
+Then point local NoxuOS checks at:
+
+```text
+MQTT_HOST=192.168.1.243
+MQTT_PORT=1883
+ESPHOME_HOST=192.168.1.243
+ESPHOME_DASHBOARD_PORT=6052
+```
+
+Home Assistant can later use this as an external MQTT broker, or you can replace it with the Mosquitto and ESPHome add-ons on the Pi 400 when Home Assistant admin access is available.
+
 ## ESPHome
 
 1. Install ESPHome Device Builder.
