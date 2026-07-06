@@ -280,6 +280,7 @@ class TelegramBridge {
     const command = process.env.TELEGRAM_WHISPER_COMMAND || process.env.WHISPER_COMMAND || 'whisper';
     const model = process.env.TELEGRAM_WHISPER_MODEL || process.env.WHISPER_MODEL || 'base';
     const language = process.env.TELEGRAM_WHISPER_LANGUAGE || process.env.WHISPER_LANGUAGE || '';
+    const fp16 = process.env.TELEGRAM_WHISPER_FP16 || 'False';
     const timeout = Number(process.env.TELEGRAM_WHISPER_TIMEOUT_MS || 120000);
     const outputDir = path.dirname(filePath);
     const basename = path.basename(filePath, path.extname(filePath));
@@ -292,13 +293,16 @@ class TelegramBridge {
       '--output_format',
       'txt',
       '--output_dir',
-      outputDir
+      outputDir,
+      '--fp16',
+      fp16
     ];
 
     if (language) args.push('--language', language);
 
     await execFileAsync(command, args, {
       windowsHide: true,
+      env: { ...process.env, PYTHONIOENCODING: 'utf-8' },
       timeout,
       maxBuffer: 10 * 1024 * 1024
     });
