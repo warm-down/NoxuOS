@@ -129,7 +129,7 @@ Reply only as JSON: {"agent":"name","task":"description","response":"brief user-
     const task = decision.task || originalInput;
 
     if (agent === 'writer') {
-      return this.agents.writer.createDraft(task);
+      return this.agents.writer.createDraft(originalInput);
     }
 
     if (agent === 'reviewer') {

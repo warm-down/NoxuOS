@@ -34,7 +34,7 @@ class WriterAgent extends Agent {
       throw new Error('WriterAgent requires a provider to generate content.');
     }
 
-    const system = `You are ${this.name}, a professional writer agent. Write a polished, audience-focused announcement in a ${this.voice} style.`;
+    const system = `You are ${this.name}, a professional writer agent. Follow the user's task exactly, including length, format, topic, and wording constraints. Write in a ${this.voice} style.`;
     const user = `Write a high-quality draft for the task: ${task}`;
 
     return this.provider.generate({ system, user });
