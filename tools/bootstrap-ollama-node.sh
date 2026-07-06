@@ -5,6 +5,14 @@ NODE_KIND="${1:-auto}"
 PI_ADDRESS="${PI_ADDRESS:-192.168.1.243}"
 APP_DIR="${APP_DIR:-$HOME/NoxuOS/agent-workflow-app}"
 
+require_cmd() {
+  local name="$1"
+  if ! command -v "$name" >/dev/null 2>&1; then
+    echo "Missing required command: $name"
+    exit 1
+  fi
+}
+
 detect_node_kind() {
   local name
   name="$(hostname | tr '[:upper:]' '[:lower:]')"
@@ -52,6 +60,37 @@ install_ollama() {
 
   echo "Installing Ollama..."
   curl -fsSL https://ollama.com/install.sh | sh
+}
+
+install_node() {
+  if command -v node >/dev/null 2>&1; then
+    local major
+    major="$(node -p "Number(process.versions.node.split('.')[0])" 2>/dev/null || echo 0)"
+    if [[ "$major" -ge 18 ]] && command -v npm >/dev/null 2>&1; then
+      echo "Node already ready: $(node --version)"
+      return
+    fi
+  fi
+
+  echo "Installing Node.js..."
+  sudo apt install -y nodejs npm
+
+  local major
+  major="$(node -p "Number(process.versions.node.split('.')[0])" 2>/dev/null || echo 0)"
+
+  if [[ "$major" -lt 18 ]]; then
+    echo "Apt provided Node.js < 18; installing Node.js 22.x from NodeSource..."
+    curl -fsSL https://deb.nodesource.com/setup_22.x | sudo -E bash -
+    sudo apt install -y nodejs
+  fi
+
+  major="$(node -p "Number(process.versions.node.split('.')[0])" 2>/dev/null || echo 0)"
+  if [[ "$major" -lt 18 ]] || ! command -v npm >/dev/null 2>&1; then
+    echo "Node.js 18+ with npm is required. Found: $(node --version 2>/dev/null || echo missing)"
+    exit 1
+  fi
+
+  echo "Node ready: $(node --version)"
 }
 
 start_ollama() {
@@ -143,6 +182,40 @@ configure_agent_app() {
   fi
 }
 
+check_pi_mesh() {
+  local kind="$1"
+  local host
+
+  if [[ "$kind" == "pi" ]]; then
+    host="127.0.0.1"
+  else
+    host="$PI_ADDRESS"
+  fi
+
+  echo "Checking Pi mesh at $host..."
+  curl -fsS "http://${host}:5000/devices" >/dev/null
+
+  python3 - "$host" <<'PY'
+import socket
+import sys
+
+host = sys.argv[1]
+with socket.create_connection((host, 8765), timeout=5):
+    print("WebSocket port open")
+PY
+}
+
+run_bridge_check() {
+  if [[ ! -d "$APP_DIR" ]]; then
+    return
+  fi
+
+  cd "$APP_DIR"
+  if [[ -f package.json ]]; then
+    npm run bridge:check
+  fi
+}
+
 main() {
   local kind
   kind="$(detect_node_kind)"
@@ -152,12 +225,18 @@ main() {
   echo "Pi address: $PI_ADDRESS"
 
   sudo apt update
-  sudo apt install -y curl ca-certificates
+  sudo apt install -y curl ca-certificates python3
 
+  require_cmd curl
+  require_cmd python3
+
+  install_node
   install_ollama
   start_ollama
   pull_models "$kind"
+  check_pi_mesh "$kind"
   configure_agent_app "$kind"
+  run_bridge_check
 
   echo
   echo "Ollama models:"
