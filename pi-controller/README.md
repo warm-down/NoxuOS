@@ -29,6 +29,17 @@ The installer:
 - Installs `empire-pi.service`.
 - Enables and restarts the service.
 
+## One Command Ready Check
+
+Use this when setting up or re-checking a Pi from Raspberry Pi Connect:
+
+```bash
+cd /home/pi/NoxuOS/pi-controller
+./pi-ready-check.sh
+```
+
+It installs the required packages, pulls the latest repo, installs Python requirements, restarts the boot service, and verifies HTTP plus WebSocket access.
+
 Manual service commands:
 
 ```bash
