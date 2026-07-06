@@ -16,6 +16,8 @@
     "launch:check": "powershell -ExecutionPolicy Bypass -File scripts/launch-check.ps1",
     "bridge:check": "node scripts/bridge-check.js",
     "fleet:check": "node scripts/fleet-check.js",
+    "mesh:check": "node scripts/fleet-check.js --require-bus",
+    "camera:check": "node scripts/camera-workflow-check.js",
     "interactive": "node src/interactive.js",
     "worker": "node src/worker.js",
     "telegram": "node src/telegram.js",

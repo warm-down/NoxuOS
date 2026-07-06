@@ -108,6 +108,12 @@ cd agent-workflow-app
 npm run fleet:check
 ```
 
+To require active WebSocket workers, use:
+
+```powershell
+npm run mesh:check
+```
+
 For connectivity-only checks while models are still downloading:
 
 ```powershell
@@ -216,6 +222,15 @@ home security camera sweep
 ```
 
 The scanner reports web and RTSP candidates only. It does not attempt logins, password guessing, authentication bypass, or public camera discovery.
+
+Before treating camera routing as operational, run:
+
+```powershell
+npm run mesh:check
+npm run camera:check
+```
+
+If `camera:check` times out, the security node is registered with the Pi but is not actively answering mesh tasks. Pull the latest code on Kali and restart the worker service.
 
 Runtime layout:
 

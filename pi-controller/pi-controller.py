@@ -34,7 +34,29 @@ def register_device():
 
 @app.route("/devices", methods=["GET"])
 def get_devices():
-    return jsonify(list(devices.values()))
+    enriched = []
+    for name, device in devices.items():
+        item = dict(device)
+        item["bus_connected"] = name in agent_bus_clients
+        enriched.append(item)
+    return jsonify(enriched)
+
+
+@app.route("/bus/clients", methods=["GET"])
+def get_bus_clients():
+    return jsonify({
+        "clients": sorted(agent_bus_clients.keys()),
+        "count": len(agent_bus_clients),
+    })
+
+
+@app.route("/health", methods=["GET"])
+def health():
+    return jsonify({
+        "status": "ok",
+        "registered_devices": len(devices),
+        "bus_clients": len(agent_bus_clients),
+    })
 
 
 @app.route("/route_task", methods=["POST"])
