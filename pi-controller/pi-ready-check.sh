@@ -38,8 +38,18 @@ echo "Service:"
 systemctl is-active "$SERVICE_NAME"
 
 echo
+echo "HTTP health:"
+curl -fsS http://localhost:5000/health
+echo
+
+echo
 echo "HTTP devices:"
 curl -fsS http://localhost:5000/devices
+echo
+
+echo
+echo "Active bus clients:"
+curl -fsS http://localhost:5000/bus/clients
 echo
 
 echo
@@ -58,3 +68,5 @@ hostname -I
 echo
 echo "Ready. From Windows, open:"
 echo "  http://pi5.local:5000/devices"
+echo "  http://pi5.local:5000/health"
+echo "  http://pi5.local:5000/bus/clients"

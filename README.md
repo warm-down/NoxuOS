@@ -166,6 +166,23 @@ To require active WebSocket workers, use:
 npm run mesh:check
 ```
 
+If strict mesh readiness fails after a Windows-side check, refresh the Pi controller from Raspberry Pi Connect:
+
+```bash
+cd ~/NoxuOS
+git pull
+cd pi-controller
+./pi-ready-check.sh
+```
+
+Then refresh Kali or any Linux worker:
+
+```bash
+cd ~/NoxuOS
+git pull
+PI_ADDRESS=192.168.1.243 DEVICE_NAME=Kali-XPS-Security DEVICE_ROLE=security ./tools/worker-ready-check.sh
+```
+
 For connectivity-only checks while models are still downloading:
 
 ```powershell
