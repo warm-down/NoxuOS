@@ -73,6 +73,34 @@ npm test
 npm start
 ```
 
+### **Loading Ollama Models On Pi Or Kali**
+Use `tools/bootstrap-ollama-node.sh` on Linux nodes to install Ollama, start it locally, pull models, and configure `agent-workflow-app/.env`.
+
+Pi 5 lightweight model host:
+
+```bash
+cd ~/NoxuOS
+git pull
+./tools/bootstrap-ollama-node.sh pi
+```
+
+Kali security node:
+
+```bash
+cd ~/NoxuOS
+git pull
+PI_ADDRESS=192.168.1.243 ./tools/bootstrap-ollama-node.sh kali
+```
+
+Override model choices when needed:
+
+```bash
+MODELS="llama3.2:latest" ./tools/bootstrap-ollama-node.sh pi
+MODELS="llama3.2:latest qwen2.5:7b" PI_ADDRESS=192.168.1.243 ./tools/bootstrap-ollama-node.sh kali
+```
+
+The script keeps Ollama local to each node at `127.0.0.1:11434`. It does not expose Windows Ollama to the LAN.
+
 ## **How It Works**
 AI Kernel: Manages system resources, user interactions, and parallel task execution efficiently.
 Task Manager: Instead of apps, tasks are directly assigned to the OS, e.g., “Prepare a presentation” or “Check emails.”
