@@ -1,4 +1,7 @@
 const assert = require('assert');
+const fs = require('fs');
+const os = require('os');
+const path = require('path');
 const { WorkflowEngine } = require('../src/WorkflowEngine');
 const { MockProvider } = require('../src/AIProvider');
 const { DirectorAgent } = require('../src/DirectorAgent');
@@ -8,7 +11,7 @@ const { TelegramBridge, parseAllowedChatIds, splitMessage } = require('../src/Te
 const { assertAllowedSubnet, normalizeSubnet, parsePorts } = require('../src/CameraScanner');
 const { extractSubnet } = require('../src/DirectorAgent');
 const { parseWakeCommand } = require('../src/WakeWords');
-const { redact } = require('../src/StructuredLogger');
+const { createLogger, redact } = require('../src/StructuredLogger');
 
 async function runTests() {
   const provider = new MockProvider();
@@ -109,6 +112,19 @@ async function runTests() {
   assert.strictEqual(redacted.TELEGRAM_BOT_TOKEN, '[redacted]', 'Structured logger should redact token fields');
   assert.strictEqual(redacted.nested.apiKey, '[redacted]', 'Structured logger should redact nested API key fields');
   assert.strictEqual(redacted.nested.value, 1, 'Structured logger should preserve safe fields');
+
+  const logDir = fs.mkdtempSync(path.join(os.tmpdir(), 'noxuos-logs-'));
+  const logPath = path.join(logDir, 'agents.jsonl');
+  const rotatingLogger = createLogger('test', {
+    logPath,
+    errorLogPath: path.join(logDir, 'errors.jsonl'),
+    maxBytes: 1,
+    backups: 2
+  });
+  rotatingLogger.info('first', { value: 1 });
+  rotatingLogger.info('second', { value: 2 });
+  assert.ok(fs.existsSync(`${logPath}.1`), 'Structured logger should rotate oversized logs');
+  assert.ok(fs.readFileSync(logPath, 'utf8').includes('"event":"second"'), 'Structured logger should keep writing after rotation');
 
   console.log('All tests passed.');
 }

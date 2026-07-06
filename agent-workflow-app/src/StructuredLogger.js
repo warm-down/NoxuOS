@@ -4,6 +4,13 @@ const path = require('path');
 
 const DEFAULT_LOG_PATH = process.env.STRUCTURED_LOG_PATH || path.resolve(process.cwd(), 'logs', 'agents.jsonl');
 const DEFAULT_ERROR_LOG_PATH = process.env.STRUCTURED_ERROR_LOG_PATH || path.resolve(process.cwd(), 'logs', 'errors.jsonl');
+function parseNonNegativeInteger(value, fallback) {
+  const parsed = Number.parseInt(value, 10);
+  return Number.isFinite(parsed) && parsed >= 0 ? parsed : fallback;
+}
+
+const DEFAULT_MAX_BYTES = parseNonNegativeInteger(process.env.STRUCTURED_LOG_MAX_BYTES, 25 * 1024 * 1024);
+const DEFAULT_BACKUPS = parseNonNegativeInteger(process.env.STRUCTURED_LOG_BACKUPS, 3);
 const SECRET_PATTERN = /(token|secret|password|api[_-]?key|authorization|cookie)/i;
 
 function ensureLogDir(filePath) {
@@ -34,8 +41,47 @@ function redact(value, depth = 0) {
   );
 }
 
-function appendJsonLine(filePath, entry) {
+function normalizePositiveInteger(value, fallback) {
+  return Number.isFinite(value) && value >= 0 ? value : fallback;
+}
+
+function rotatedPath(filePath, index) {
+  return `${filePath}.${index}`;
+}
+
+function rotateLogIfNeeded(filePath, maxBytes = DEFAULT_MAX_BYTES, backups = DEFAULT_BACKUPS) {
+  const safeMaxBytes = normalizePositiveInteger(maxBytes, DEFAULT_MAX_BYTES);
+  const safeBackups = normalizePositiveInteger(backups, DEFAULT_BACKUPS);
+
+  if (safeMaxBytes === 0 || !fs.existsSync(filePath)) return false;
+
+  const stats = fs.statSync(filePath);
+  if (stats.size < safeMaxBytes) return false;
+
+  if (safeBackups === 0) {
+    fs.truncateSync(filePath, 0);
+    return true;
+  }
+
+  for (let index = safeBackups; index >= 1; index -= 1) {
+    const current = rotatedPath(filePath, index);
+    const next = rotatedPath(filePath, index + 1);
+
+    if (!fs.existsSync(current)) continue;
+    if (index === safeBackups) {
+      fs.rmSync(current, { force: true });
+    } else {
+      fs.renameSync(current, next);
+    }
+  }
+
+  fs.renameSync(filePath, rotatedPath(filePath, 1));
+  return true;
+}
+
+function appendJsonLine(filePath, entry, options = {}) {
   ensureLogDir(filePath);
+  rotateLogIfNeeded(filePath, options.maxBytes, options.backups);
   fs.appendFileSync(filePath, `${JSON.stringify(entry)}\n`, 'utf8');
 }
 
@@ -43,12 +89,16 @@ class StructuredLogger {
   constructor(component, {
     logPath = DEFAULT_LOG_PATH,
     errorLogPath = DEFAULT_ERROR_LOG_PATH,
-    deviceName = process.env.DEVICE_NAME || os.hostname()
+    deviceName = process.env.DEVICE_NAME || os.hostname(),
+    maxBytes = DEFAULT_MAX_BYTES,
+    backups = DEFAULT_BACKUPS
   } = {}) {
     this.component = component;
     this.logPath = logPath;
     this.errorLogPath = errorLogPath;
     this.deviceName = deviceName;
+    this.maxBytes = maxBytes;
+    this.backups = backups;
   }
 
   write(level, event, details = {}) {
@@ -63,7 +113,10 @@ class StructuredLogger {
     };
 
     try {
-      appendJsonLine(level === 'error' ? this.errorLogPath : this.logPath, entry);
+      appendJsonLine(level === 'error' ? this.errorLogPath : this.logPath, entry, {
+        maxBytes: this.maxBytes,
+        backups: this.backups
+      });
     } catch (error) {
       console.error(`[LOGGING] Failed to write ${event}: ${error.message}`);
     }
@@ -96,6 +149,9 @@ module.exports = {
   StructuredLogger,
   createLogger,
   redact,
+  rotateLogIfNeeded,
   DEFAULT_LOG_PATH,
-  DEFAULT_ERROR_LOG_PATH
+  DEFAULT_ERROR_LOG_PATH,
+  DEFAULT_MAX_BYTES,
+  DEFAULT_BACKUPS
 };

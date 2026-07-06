@@ -27,7 +27,22 @@ if not exist "node_modules" (
   )
 )
 
-echo [1/5] Launch checks...
+echo [1/6] Checking Ollama...
+curl -s http://127.0.0.1:11434/api/tags >nul 2>&1
+if errorlevel 1 (
+  echo Starting Ollama...
+  start "" ollama serve
+  timeout /t 8 >nul
+)
+
+curl -s http://127.0.0.1:11434/api/tags >nul 2>&1
+if errorlevel 1 (
+  echo Ollama is still not responding on 127.0.0.1:11434.
+  popd
+  exit /b 1
+)
+
+echo [2/6] Launch checks...
 call npm run launch:check
 if errorlevel 1 (
   echo Launch check failed.
@@ -35,7 +50,7 @@ if errorlevel 1 (
   exit /b 1
 )
 
-echo [2/5] Starting/restarting voice and Telegram stack...
+echo [3/6] Starting/restarting voice and Telegram stack...
 call npm run voice:restart
 if errorlevel 1 (
   echo Voice stack failed.
@@ -43,7 +58,7 @@ if errorlevel 1 (
   exit /b 1
 )
 
-echo [3/5] Capability check...
+echo [4/6] Capability check...
 call npm run capability:check
 if errorlevel 1 (
   echo Capability check failed.
@@ -51,7 +66,7 @@ if errorlevel 1 (
   exit /b 1
 )
 
-echo [4/5] Architecture check...
+echo [5/6] Architecture check...
 call npm run architecture:check
 if errorlevel 1 (
   echo Architecture check failed. Finish Pi 5, Pi 400, and Kali readiness before using FULL launch.
@@ -59,7 +74,7 @@ if errorlevel 1 (
   exit /b 1
 )
 
-echo [5/5] Command center...
+echo [6/6] Command center...
 echo.
 echo ============================================
 echo  EMPIRE ONLINE - FULL STACK SUPERVISED
