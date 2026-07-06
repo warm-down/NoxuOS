@@ -158,6 +158,7 @@ git pull
 cd agent-workflow-app
 npm install
 npm run bridge:check
+npm run worker
 ```
 
 Then message Telegram:
@@ -169,6 +170,14 @@ home security camera sweep
 ```
 
 The scanner reports web and RTSP candidates only. It does not attempt logins, password guessing, authentication bypass, or public camera discovery.
+
+Runtime layout:
+
+```text
+Windows: npm run telegram
+Kali:    npm run worker
+Pi 5:    empire-pi.service
+```
 
 ## **How It Works**
 AI Kernel: Manages system resources, user interactions, and parallel task execution efficiently.

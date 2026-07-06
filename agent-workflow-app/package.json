@@ -12,6 +12,7 @@
     "bridge:check": "node scripts/bridge-check.js",
     "fleet:check": "node scripts/fleet-check.js",
     "interactive": "node src/interactive.js",
+    "worker": "node src/worker.js",
     "telegram": "node src/telegram.js",
     "telegram:setup": "node scripts/telegram-setup.js"
   },
