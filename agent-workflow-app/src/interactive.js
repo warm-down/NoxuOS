@@ -65,6 +65,7 @@ Commands:
     if (cmd === 'exit' || cmd === 'quit') {
       console.log('Shutting down...');
       rl.close();
+      empire.close();
       return;
     }
 

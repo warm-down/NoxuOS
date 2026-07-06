@@ -14,6 +14,7 @@ async function main() {
 
   await bridge.reportStatus();
   console.log('[EMPIRE] Mesh mode is ready.');
+  bridge.close();
 }
 
 main().catch((error) => {

@@ -190,6 +190,14 @@ class EmpireBridge {
       this.ws.send(JSON.stringify(message));
     }
   }
+
+  close() {
+    if (this.ws) {
+      this.ws.close();
+      this.ws = null;
+    }
+    this.connected = false;
+  }
 }
 
 module.exports = EmpireBridge;
